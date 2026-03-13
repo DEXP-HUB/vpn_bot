@@ -64,7 +64,6 @@ ENV/
 Thumbs.db
 
 # Poetry
-poetry.lock
 .cache/pypoetry/
 
 # Logs
