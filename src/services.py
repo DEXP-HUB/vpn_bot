@@ -1,11 +1,10 @@
 """Сервисные функции: SSH и удалённые команды."""
 
 import os
-import shlex
 from pathlib import Path
 
-import paramiko
-from dotenv import load_dotenv
+import paramiko  # pyright: ignore[reportMissingModuleSource]
+from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 
 # Корень проекта (рядом с .env)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -46,14 +45,14 @@ class SshConnection:
         if not host or not username or not password:
             raise ValueError(
                 "В .env должны быть заданы SSH_HOST, SSH_USERNAME и SSH_PASSWORD."
-            )
+            )  
 
         return cls(
             host=host,
             port=int(port_raw),
             username=username,
             password=password,
-        )
+        ) 
 
     def connect(self) -> paramiko.SSHClient:
         """Создаёт клиент, подключается к серверу; вызывающий обязан вызвать close()."""
@@ -116,139 +115,72 @@ class RemoteCommandExecutor:
         return output
 
 
-class WireGuard:
-    """
-    Подключается к серверу по SSH, держит RemoteCommandExecutor и через него
-    добавляет peer на интерфейс WireGuard и собирает текст client.conf.
+class Wireguard:
+    """Генерирует ключи WireGuard на удалённом сервере через SSH."""
 
-    Если WireGuard крутится в Docker, укажите ``docker_container`` — команды ``wg``
-    будут выполняться как ``docker exec … wg …`` на удалённом хосте.
-    """
-
-    def __init__(
-        self,
-        connection: SshConnection,
-        *,
-        docker_container: str | None = None,
-    ) -> None:
-        self._connection = connection
-        self._docker_container = docker_container.strip() if docker_container else None
-        self._client: paramiko.SSHClient | None = None
-        self._executor: RemoteCommandExecutor | None = None
+    def __init__(self, executor: RemoteCommandExecutor) -> None:
+        self._executor = executor
 
     @classmethod
-    def from_env(cls, env_path: Path | None = None) -> "WireGuard":
-        """
-        Загружает .env: SSH как у :class:`SshConnection`, опционально
-        ``WIREGUARD_DOCKER_CONTAINER`` — имя контейнера с интерфейсом WireGuard.
-        """
-        path = env_path or (_PROJECT_ROOT / ".env")
-        load_dotenv(path)
-        conn = SshConnection.from_env(path)
-        raw = os.getenv("WIREGUARD_DOCKER_CONTAINER", "").strip()
-        container = raw or None
-        return cls(conn, docker_container=container)
-
-    def _wg(self, wg_args: str) -> str:
-        """Собирает команду ``wg <wg_args>`` или ``docker exec … wg <wg_args>``."""
-        if self._docker_container:
-            c = shlex.quote(self._docker_container)
-            return f"docker exec {c} wg {wg_args}"
-        return f"wg {wg_args}"
-
-    def _wg_pubkey_command(self) -> str:
-        """Команда ``wg pubkey`` с stdin; в Docker нужен ``docker exec -i``."""
-        if self._docker_container:
-            c = shlex.quote(self._docker_container)
-            return f"docker exec -i {c} wg pubkey"
-        return "wg pubkey"
-
-    def connect(self) -> None:
-        """Открывает SSH-сессию и создаёт исполнитель удалённых команд."""
-        if self._client is not None:
-            return
-        self._client = self._connection.connect()
-        self._executor = RemoteCommandExecutor(self._client)
+    def from_env(cls) -> "Wireguard":
+        """Создаёт экземпляр Wireguard, используя параметры SSH из .env."""
+        connection = SshConnection.from_env()
+        client = connection.connect()
+        executor = RemoteCommandExecutor(client)
+        # Вызывающий обязан закрыть клиент через close().
+        instance = cls(executor)
+        instance._client = client  # type: ignore[attr-defined]
+        return instance
 
     def close(self) -> None:
-        """Закрывает SSH-клиент."""
-        if self._client is not None:
-            self._client.close()
-            self._client = None
-            self._executor = None
+        """Закрывает SSH-соединение, созданное в from_env()."""
+        client = getattr(self, "_client", None)
+        if client is not None:
+            client.close()
 
-    def __enter__(self) -> "WireGuard":
-        self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.close()
-
-    @property
-    def executor(self) -> RemoteCommandExecutor:
-        """Возвращает исполнитель команд после connect() или входа в контекст."""
-        if self._executor is None:
-            raise RuntimeError("Сначала вызовите connect() или используйте with WireGuard(...).")
-        return self._executor
-
-    def generate_client_config(
+    def _append_peer_to_wg0_conf(
         self,
         *,
-        client_address: str,
-        endpoint: str,
-        interface: str = "wg",
-        allowed_ips: str = "0.0.0.0/0, ::/0",
-        persistent_keepalive: int = 25,
-        dns: str | None = None,
-    ) -> str:
+        client_name: str,
+        public_key: str,
+        allowed_ips: str = "10.0.0.2/32",
+        wg_conf_path: str = "/etc/wireguard/wg0.conf",
+    ) -> None:
+        """Добавляет секцию Peer в конец wg0.conf."""
+        # Важно: heredoc должен содержать реальные переводы строк,
+        # иначе "EOF" и отступы могут попасть в файл.
+        peer_block = (
+            "\n"
+            f"# Client: {client_name}\n"
+            "[Peer]\n"
+            f"PublicKey = {public_key}\n"
+            f"AllowedIPs = {allowed_ips}\n"
+        )
+
+        command = (
+            "bash -lc '"
+            f"cat >> \"{wg_conf_path}\" <<\"EOF\"\n"
+            f"{peer_block}"
+            "EOF\n"
+            "'"
+        )
+        self._executor.run(command)
+
+    def create_client_keys(self, client_name: str = "goloburdin") -> None:
         """
-        На сервере читает публичный ключ интерфейса, генерирует ключи клиента,
-        регистрирует peer (wg set) и возвращает содержимое .conf для клиента.
+        Создаёт приватный и публичный ключи клиента WireGuard в /etc/wireguard.
 
-        ``client_address`` — адрес клиента в туннеле, например ``10.8.0.10/32``.
-        ``endpoint`` — как клиенту достучаться до сервера: ``host:51820``.
+        Приватный ключ:  /etc/wireguard/<client_name>_privatekey
+        Публичный ключ:  /etc/wireguard/<client_name>_publickey
         """
-        ex = self.executor
-        server_public_key = ex.run(self._wg(f"show {interface} public-key"))
-        client_private_key = ex.run(self._wg("genkey")).strip()
-        client_public_key = ex.run_with_stdin(
-            self._wg_pubkey_command(),
-            client_private_key + "\n",
-        ).strip()
+        private_path = f"/etc/wireguard/{client_name}_privatekey"
+        public_path = f"/etc/wireguard/{client_name}_publickey"
 
-        ex.run(
-            self._wg(
-                f"set {interface} peer {client_public_key} allowed-ips {client_address}"
-            )
+        command = (
+            f"cd /etc/wireguard && "
+            f"wg genkey | tee {private_path} | wg pubkey | tee {public_path}"
         )
-
-        lines = [
-            "[Interface]",
-            f"PrivateKey = {client_private_key}",
-            f"Address = {client_address}",
-        ]
-        if dns:
-            lines.append(f"DNS = {dns}")
-        lines.extend(
-            [
-                "",
-                "[Peer]",
-                f"PublicKey = {server_public_key}",
-                f"Endpoint = {endpoint}",
-                f"AllowedIPs = {allowed_ips}",
-                f"PersistentKeepalive = {persistent_keepalive}",
-            ]
-        )
-        return "\n".join(lines) + "\n"
-
-
-def ssh_run_ls() -> str:
-    with WireGuard(SshConnection.from_env()) as wg:
-        conf = wg.generate_client_config(
-            client_address="10.8.0.10/32",
-            endpoint=f"{os.getenv('SSH_HOST')}:{os.getenv('VPN_PORT')}",
-        )
-        print(conf)
-
-
-print(ssh_run_ls())
+        self._executor.run(command)
+        public_key = self._executor.run(f"cat {public_path}")
+        self._append_peer_to_wg0_conf(client_name=client_name, public_key=public_key)
+        
