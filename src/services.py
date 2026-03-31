@@ -1,6 +1,7 @@
 """Сервисные функции: SSH и удалённые команды."""
 
 import os
+import ipaddress
 from pathlib import Path
 
 import paramiko  # pyright: ignore[reportMissingModuleSource]
@@ -166,6 +167,54 @@ class Wireguard:
         )
         self._executor.run(command)
 
+    def _calc_next_allowed_ip(
+        self,
+        *,
+        wg_conf_path: str = "/etc/wireguard/wg0.conf",
+        base_network: str = "10.0.0.0/24",
+    ) -> str:
+        """
+        Вычисляет следующий свободный AllowedIPs для нового клиента на основе wg0.conf.
+        """
+        try:
+            content = self._executor.run(f"cat {wg_conf_path}")
+        except RuntimeError:
+            # Если файла ещё нет, начинаем с первого клиента.
+            return "10.0.0.2/32"
+
+        network = ipaddress.ip_network(base_network, strict=False)
+
+        used_ips: set[ipaddress.IPv4Address] = set()
+
+        for line in content.splitlines():
+            line = line.strip()
+            if not line.startswith("AllowedIPs"):
+                continue
+            # Ожидаемый формат: "AllowedIPs = 10.0.0.X/32"
+            parts = line.split("=", maxsplit=1)
+            
+            if len(parts) != 2:
+                continue
+
+            ip_part = parts[1].strip().split(",", maxsplit=1)[0]
+            try:
+                iface = ipaddress.ip_interface(ip_part)
+            except ValueError:
+                continue
+            if iface.ip in network:
+                used_ips.add(iface.ip)
+
+        # Резервируем первый адрес сети и, при необходимости, адрес сервера.
+        candidates = (ip for ip in network.hosts())
+        # Пропустить первый адрес (например, 10.0.0.1 для сервера).
+        next(candidates, None)
+
+        for ip in candidates:
+            if ip not in used_ips:
+                return f"{ip}/32"
+
+        raise RuntimeError("В подсети WireGuard не осталось свободных адресов AllowedIPs.")
+
     def create_client_keys(self, client_name: str = "goloburdin") -> None:
         """
         Создаёт приватный и публичный ключи клиента WireGuard в /etc/wireguard.
@@ -182,5 +231,9 @@ class Wireguard:
         )
         self._executor.run(command)
         public_key = self._executor.run(f"cat {public_path}")
-        self._append_peer_to_wg0_conf(client_name=client_name, public_key=public_key)
-        
+        allowed_ips = self._calc_next_allowed_ip()
+        self._append_peer_to_wg0_conf(
+            client_name=client_name,
+            public_key=public_key,
+            allowed_ips=allowed_ips,
+        )
