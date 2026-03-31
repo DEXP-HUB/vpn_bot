@@ -237,3 +237,68 @@ class Wireguard:
             public_key=public_key,
             allowed_ips=allowed_ips,
         )
+
+    def create_client_config(
+        self,
+        client_name: str,
+        *,
+        wg_conf_path: str = "/etc/wireguard/wg0.conf",
+        config_dir: str = "/etc/wireguard",
+    ) -> str:
+        """
+        Создаёт конфигурационный файл клиента WireGuard <client_name>.conf на сервере.
+        """
+        private_key_path = f"/etc/wireguard/{client_name}_privatekey"
+        private_key = self._executor.run(f"cat {private_key_path}")
+
+        # Пытаемся найти AllowedIPs, уже записанный для этого клиента в wg0.conf.
+        try:
+            conf_content = self._executor.run(f"cat {wg_conf_path}")
+        except RuntimeError:
+            conf_content = ""
+
+        allowed_ips_value: str | None = None
+        current_client = False
+
+        for line in conf_content.splitlines():
+            stripped = line.strip()
+
+            if stripped.startswith("# Client: "):
+                current_client = stripped == f"# Client: {client_name}"
+                continue
+
+            if current_client and stripped.startswith("AllowedIPs"):
+                parts = stripped.split("=", maxsplit=1)
+                if len(parts) == 2:
+                    allowed_ips_value = parts[1].split("#", maxsplit=1)[0].strip()
+                break
+
+        # Если не нашли в конфиге, используем следующий свободный адрес.
+        if not allowed_ips_value:
+            allowed_ips_value = self._calc_next_allowed_ip(wg_conf_path=wg_conf_path)
+
+        server_public_key = self._executor.run("wg show wg0 public-key")
+
+        config_text = (
+            "[Interface]\n"
+            f"PrivateKey = {private_key}\n"
+            f"Address = {allowed_ips_value}\n"
+            "DNS = 8.8.8.8, 1.1.1.1\n"
+            "\n"
+            "[Peer]\n"
+            f"PublicKey = {server_public_key}\n"
+            "Endpoint = 178.208.76.35:51822\n"
+            "AllowedIPs = 0.0.0.0/0\n"
+            "PersistentKeepalive = 20\n"
+        )
+
+        config_path = f"{config_dir}/{client_name}.conf"
+        command = (
+            "bash -lc '"
+            f"cat > \"{config_path}\" <<\"EOF\"\n"
+            f"{config_text}"
+            "EOF\n"
+            "'"
+        )
+        self._executor.run(command)
+        return config_path
