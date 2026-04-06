@@ -18,6 +18,12 @@ WELCOME_TEXT = """
 3. Импортируй его в приложение WireGuard на своём устройстве
 4. Подключайся и пользуйся безопасным интернетом
 
+📥 Скачать WireGuard:
+• Windows: https://download.wireguard.com/windows-client/wireguard-installer.exe
+• macOS: https://apps.apple.com/app/wireguard/id1451685025
+• Android: https://play.google.com/store/apps/details?id=com.wireguard.android
+• iOS: https://apps.apple.com/app/wireguard/id1441195209
+
 ❓ Если возникнут вопросы — обратись к администратору.
 """
 
@@ -25,3 +31,4 @@ WELCOME_TEXT = """
 @router.message(Command("start"))
 async def start(message: Message) -> None:
     await message.answer(WELCOME_TEXT)
+ 
