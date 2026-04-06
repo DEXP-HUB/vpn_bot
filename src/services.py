@@ -1,5 +1,6 @@
 """Сервисные функции: SSH и удалённые команды."""
 
+import io
 import os
 import ipaddress
 from pathlib import Path
@@ -244,9 +245,10 @@ class Wireguard:
         *,
         wg_conf_path: str = "/etc/wireguard/wg0.conf",
         config_dir: str = "/etc/wireguard",
-    ) -> str:
+    ) -> io.BytesIO:
         """
-        Создаёт конфигурационный файл клиента WireGuard <client_name>.conf на сервере.
+        Создаёт конфигурационный файл клиента WireGuard <client_name>.conf на сервере
+        и возвращает его содержимое как объект BytesIO с именем <client_name>.conf.
         """
         private_key_path = f"/etc/wireguard/{client_name}_privatekey"
         private_key = self._executor.run(f"cat {private_key_path}")
@@ -301,4 +303,7 @@ class Wireguard:
             "'"
         )
         self._executor.run(command)
-        return config_path
+
+        buf = io.BytesIO(config_text.encode())
+        buf.name = f"{client_name}.conf"
+        return buf
