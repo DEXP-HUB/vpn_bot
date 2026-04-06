@@ -1,28 +1,36 @@
+import asyncio
 import os
 
+from aiogram import Dispatcher, Bot
+from aiogram.filters import Command
+from aiogram.types import BufferedInputFile, Message
 from dotenv import load_dotenv
 
-from .bot import TelegramBot
 from .wireguard.services import WireguardConfiguretor
+from .bot.bot import bot
 
 load_dotenv()
 
-bot = TelegramBot(token=os.getenv("TELEGRAM_BOT_TOKEN")).bot
+bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
+dp = Dispatcher()
 
 
-@bot.message_handler(commands=["generate_config"])
-def generate_config(message) -> None:
+@dp.message(Command("generate_config"))
+async def generate_config(message: Message) -> None:
     """Генерирует конфигурацию для клиента WireGuard"""
     wireguard = WireguardConfiguretor.from_env()
     wireguard.create_client_keys(client_name="test")
     config_file = wireguard.create_client_config(client_name="test")
-    bot.send_document(
-        chat_id=message.chat.id, 
-        document=config_file, 
+    wireguard.close()
+    await message.answer_document(
+        document=BufferedInputFile(config_file.read(), filename=config_file.name),
         caption="Конфигурация успешно сгенерирована ✅",
     )
-    wireguard.close()
+
+
+async def main() -> None:
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    bot.infinity_polling()
+    asyncio.run(main())
