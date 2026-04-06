@@ -12,8 +12,8 @@ load_dotenv()
 bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 dp = Dispatcher()
 
-dp.include_router(command_router)
-dp.include_router(router_configurator)
+
+dp.include_routers(command_router, router_configurator)
 
 
 async def main() -> None:
