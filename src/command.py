@@ -31,4 +31,3 @@ WELCOME_TEXT = """
 @router.message(Command("start"))
 async def start(message: Message) -> None:
     await message.answer(WELCOME_TEXT)
- 
