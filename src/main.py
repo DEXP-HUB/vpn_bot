@@ -11,7 +11,7 @@ from .logger import Logger
 
 load_dotenv()
 
-logger = Logger.get_logger("aiogram")
+logger = Logger.get_logger("Dispatcher")
 
 bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 dp = Dispatcher()
@@ -19,16 +19,16 @@ dp = Dispatcher()
 dp.include_routers(command_router, router_configurator)
 
 
-@dp.update.outer_middleware()
-async def logging_middleware(handler, event: Update, data: dict):
-    user = event.event.from_user
-    logger.info(f"[{user.id}] @{user.username} — {event.event_type}")
-    return await handler(event, data)
-
 
 async def main() -> None:
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        logger.info("Start polling")
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Stop polling", exc_info=True)
+    except Exception as e:
+        logger.error("Error", exc_info=True)
