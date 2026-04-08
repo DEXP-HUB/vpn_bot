@@ -2,7 +2,12 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-router = Router()
+from .middlewares import LoggingMessageMiddleware
+
+router = Router(name="CommandRouter")
+
+# Мидлвер логирует все входящие сообщения, обрабатываемые этим роутером
+router.message.middleware(LoggingMessageMiddleware(router.name))
 
 WELCOME_TEXT = """
 👋 Привет! Я VPN-бот на базе WireGuard.

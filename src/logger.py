@@ -6,28 +6,28 @@ class Logger:
     """
     Фабрика логгеров для Telegram-бота.
 
-    Реализует паттерн Singleton: логгер создаётся один раз и переиспользуется
-    при последующих вызовах get_logger(). Логи уровней INFO, WARNING и ERROR
-    записываются в файл src/bot.log и дублируются в консоль.
+    Каждый уникальный `name` получает свой независимый экземпляр logging.Logger
+    с общим форматом и обработчиками (файл + консоль). Повторный вызов с тем же
+    именем возвращает уже существующий экземпляр без переинициализации.
     """
 
-    _instance: logging.Logger | None = None
+    # Словарь хранит по одному логгеру на каждое уникальное имя
+    _instances: dict[str, logging.Logger] = {}
 
     @classmethod
-    def get_logger(cls, name: str = None) -> logging.Logger:
+    def get_logger(cls, name: str = "bot") -> logging.Logger:
         """
-        Возвращает единственный экземпляр логгера.
+        Возвращает логгер с заданным именем.
 
-        При первом вызове создаёт логгер с именем `name`, настраивает два
-        обработчика — файловый (src/bot.log) и консольный — и сохраняет его
-        в атрибуте класса. При повторных вызовах возвращает уже созданный
-        экземпляр без переинициализации.
+        При первом вызове с конкретным `name` создаёт логгер, настраивает
+        файловый обработчик (src/bot.log) и консольный, затем кэширует его.
+        При повторном вызове с тем же именем возвращает кэшированный экземпляр.
 
-        :param name: Имя логгера (отображается в строке лога). По умолчанию None.
+        :param name: Имя логгера (отображается в строке лога). По умолчанию "bot".
         :return: Настроенный экземпляр logging.Logger.
         """
-        if cls._instance is not None:
-            return cls._instance
+        if name in cls._instances:
+            return cls._instances[name]
 
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
@@ -49,5 +49,5 @@ class Logger:
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
-        cls._instance = logger
+        cls._instances[name] = logger
         return logger

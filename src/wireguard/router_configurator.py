@@ -2,9 +2,12 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, Message
 
+from ..middlewares import LoggingMessageMiddleware
+
 from .services import WireguardConfiguretor
 
-router_configurator = Router()
+router_configurator = Router(name="RouterConfigurator")
+router_configurator.message.middleware(LoggingMessageMiddleware(router_configurator.name))
 
 
 @router_configurator.message(Command("generate_config"))
