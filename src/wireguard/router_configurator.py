@@ -1,27 +1,25 @@
+from io import BytesIO
+
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, Message
+from fast_depends import Depends, inject
 
 from ..middlewares import LoggingMessageMiddleware
 
-from .services import WireguardConfiguretor
+from .dependency import provide_client_config
 
 router_configurator = Router(name="RouterConfigurator")
 router_configurator.message.middleware(LoggingMessageMiddleware(router_configurator.name))
 
 
 @router_configurator.message(Command("generate_config"))
-async def generate_config(message: Message) -> None:
+@inject
+async def generate_config(
+    message: Message,
+    config_file: BytesIO = Depends(provide_client_config),
+) -> None:
     """Генерирует конфигурацию для клиента WireGuard"""
-    wireguard = WireguardConfiguretor.from_env()
-    wireguard.create_client_keys(
-        client_name=message.from_user.username
-    )
-    config_file = wireguard.create_client_config(
-        client_name=message.from_user.username
-    )
-    wireguard.close()
-
     await message.answer_document(
         document=BufferedInputFile(config_file.read(), filename=config_file.name),
         caption="Конфигурация успешно сгенерирована ✅",

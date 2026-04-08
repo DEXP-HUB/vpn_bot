@@ -196,3 +196,25 @@ class WireguardConfiguretor:
         buf = io.BytesIO(config_text.encode())
         buf.name = f"{client_name}.conf"
         return buf
+
+
+class WireguardManager:
+    """Управляет полным сценарием генерации клиентского WireGuard-конфига."""
+
+    def __init__(self, configurator: WireguardConfiguretor | None = None) -> None:
+        # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
+        self._configurator = configurator or WireguardConfiguretor.from_env()
+
+    def generate_client_config(self, client_name: str) -> io.BytesIO:
+        """
+        Выполняет полный процесс подготовки конфигурации клиента:
+        1) генерирует ключи;
+        2) добавляет peer в wg0.conf;
+        3) формирует и возвращает клиентский .conf файл.
+        """
+        try:
+            self._configurator.create_client_keys(client_name=client_name)
+            return self._configurator.create_client_config(client_name=client_name)
+        finally:
+            # Всегда закрываем SSH-сессию после выполнения сценария.
+            self._configurator.close()
