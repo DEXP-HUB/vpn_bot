@@ -4,6 +4,10 @@ import io
 import ipaddress
 
 from src.utils import RemoteCommandExecutor, SshConnection
+from ..logger import Logger
+
+
+logger_wireguard = Logger.get_logger("wireguard")
 
 
 class WireguardConfiguretor:
@@ -28,7 +32,7 @@ class WireguardConfiguretor:
         client = getattr(self, "_client", None)
         if client is not None:
             client.close()
-
+            
     def _append_peer_to_wg0_conf(
         self,
         *,
@@ -56,7 +60,7 @@ class WireguardConfiguretor:
             "'"
         )
         self._executor.run(command)
-
+        
     def _calc_next_allowed_ip(
         self,
         *,
@@ -214,7 +218,13 @@ class WireguardManager:
         """
         try:
             self._configurator.create_client_keys(client_name=client_name)
+            logger_wireguard.info(f"Client config generated for {client_name}")
             return self._configurator.create_client_config(client_name=client_name)
+
+        except Exception as e:
+            logger_wireguard.error(f"Error generating client config for {client_name}: {e}", exc_info=True)
+            raise e
+            
         finally:
             # Всегда закрываем SSH-сессию после выполнения сценария.
             self._configurator.close()
