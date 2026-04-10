@@ -20,7 +20,8 @@ class Logger:
         Возвращает логгер с заданным именем.
 
         При первом вызове с конкретным `name` создаёт логгер, настраивает
-        файловый обработчик (src/bot.log) и консольный, затем кэширует его.
+        файловый обработчик (bot.log в корне проекта) и консольный, затем
+        кэширует его.
         При повторном вызове с тем же именем возвращает кэшированный экземпляр.
 
         :param name: Имя логгера (отображается в строке лога). По умолчанию "bot".
@@ -37,7 +38,9 @@ class Logger:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-        log_path = os.path.join(os.path.dirname(__file__), "bot.log")
+        # Формируем путь к файлу логов в корне проекта (на уровень выше `src`).
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        log_path = os.path.join(project_root, "bot.log")
         file_handler = logging.FileHandler(log_path, encoding="utf-8")
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(formatter)
