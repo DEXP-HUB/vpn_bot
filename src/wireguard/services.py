@@ -124,13 +124,17 @@ class WireguardConfiguretor:
             f"wg genkey | tee {private_path} | wg pubkey | tee {public_path}"
         )
         self._executor.run(command)
-        public_key = self._executor.run(f"cat {public_path}")
+        public_key = self._executor.run(f"cat {public_path}").strip()
         allowed_ips = self._calc_next_allowed_ip()
         self._append_peer_to_wg0_conf(
             client_name=client_name,
             public_key=public_key,
             allowed_ips=allowed_ips,
         )
+
+    def _reload_wireguard(self, interface: str = "wg0") -> None:
+        """Перезапускает WireGuard-интерфейс на сервере через systemctl reload."""
+        self._executor.run(f"systemctl reload wg-quick@{interface}")
 
     def create_client_config(
         self,
@@ -144,7 +148,7 @@ class WireguardConfiguretor:
         и возвращает его содержимое как объект BytesIO с именем <client_name>.conf.
         """
         private_key_path = f"/etc/wireguard/{client_name}_privatekey"
-        private_key = self._executor.run(f"cat {private_key_path}")
+        private_key = self._executor.run(f"cat {private_key_path}").strip()
 
         # Пытаемся найти AllowedIPs, уже записанный для этого клиента в wg0.conf.
         try:
@@ -172,7 +176,7 @@ class WireguardConfiguretor:
         if not allowed_ips_value:
             allowed_ips_value = self._calc_next_allowed_ip(wg_conf_path=wg_conf_path)
 
-        server_public_key = self._executor.run("wg show wg0 public-key")
+        server_public_key = self._executor.run("wg show wg0 public-key").strip()
 
         config_text = (
             "[Interface]\n"
@@ -199,6 +203,12 @@ class WireguardConfiguretor:
 
         buf = io.BytesIO(config_text.encode())
         buf.name = f"{client_name}.conf"
+
+        # Удаляем временные файлы ключей и конфиг клиента с сервера.
+        private_key_file = f"{config_dir}/{client_name}_privatekey"
+        public_key_file = f"{config_dir}/{client_name}_publickey"
+        self._executor.run(f"rm -f \"{config_path}\" \"{private_key_file}\" \"{public_key_file}\"")
+
         return buf
 
 
@@ -218,7 +228,8 @@ class WireguardManager:
         """
         try:
             self._configurator.create_client_keys(client_name=client_name)
-            logger_wireguard.info(f"Client config generated for {client_name}")
+            self._configurator._reload_wireguard()
+            logger_wireguard.info(f"WireGuard reloaded after adding peer {client_name}")
             return self._configurator.create_client_config(client_name=client_name)
 
         except Exception as e:
