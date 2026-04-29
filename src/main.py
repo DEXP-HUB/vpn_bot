@@ -8,7 +8,7 @@ from .command import router as command_router
 from .database import init_db
 from .logger import Logger
 from .wireguard.router_configurator import router_configurator
-from .add_users import router as add_users_router
+from .users_manage import router as users_manage_router
 
 load_dotenv()
 
@@ -16,7 +16,7 @@ bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 dp = Dispatcher(name="Dispatcher")
 logger = Logger.get_logger(dp.name)
 
-dp.include_routers(command_router, router_configurator, add_users_router)
+dp.include_routers(command_router, router_configurator, users_manage_router)
 
 
 async def main() -> None:
