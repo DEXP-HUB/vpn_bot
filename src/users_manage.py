@@ -19,7 +19,6 @@ router.message.middleware(AdminMessageMiddleware(int(getenv("ADMIN_ID"))))
 @inject
 async def add_user(
     message: Message,
-    telegram_id: int | None = Depends(provide_new_user),
+    status: str = Depends(provide_new_user),
 ) -> None:
-    if telegram_id is not None:
-        await message.answer(f"Пользователь {telegram_id} успешно добавлен.")
+    await message.answer(status)
