@@ -6,6 +6,60 @@ from aiogram.types import CallbackQuery, Message, TelegramObject
 from .logger import Logger
 
 
+class AdminMessageMiddleware(BaseMiddleware):
+    """
+    Мидлвер для проверки прав администратора на входящих сообщениях.
+
+    Пропускает дальше только сообщения от пользователя с указанным admin_id.
+    Остальные сообщения отбрасываются без вызова хендлера.
+
+    :param admin_id: Telegram ID администратора.
+    """
+
+    def __init__(self, admin_id: int) -> None:
+        # Сохраняем ID администратора для последующих проверок
+        self.admin_id = admin_id
+        super().__init__()
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: dict[str, Any],
+    ) -> Any:
+        # Пропускаем сообщение только если отправитель является администратором
+        if event.from_user and event.from_user.id == self.admin_id:
+            return await handler(event, data)
+        return None
+
+
+class AdminCallbackMiddleware(BaseMiddleware):
+    """
+    Мидлвер для проверки прав администратора на входящих callback-запросах.
+
+    Пропускает дальше только callback-запросы от пользователя с указанным admin_id.
+    Остальные запросы отбрасываются без вызова хендлера.
+
+    :param admin_id: Telegram ID администратора.
+    """
+
+    def __init__(self, admin_id: int) -> None:
+        # Сохраняем ID администратора для последующих проверок
+        self.admin_id = admin_id
+        super().__init__()
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: CallbackQuery,
+        data: dict[str, Any],
+    ) -> Any:
+        # Пропускаем callback только если отправитель является администратором
+        if event.from_user and event.from_user.id == self.admin_id:
+            return await handler(event, data)
+        return None
+
+
 class LoggingMessageMiddleware(BaseMiddleware):
     """
     Мидлвер для логирования входящих сообщений от пользователей.
