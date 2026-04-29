@@ -5,8 +5,9 @@ from aiogram import Dispatcher, Bot
 from dotenv import load_dotenv
 
 from .command import router as command_router
-from .wireguard.router_configurator import router_configurator
+from .database import init_db
 from .logger import Logger
+from .wireguard.router_configurator import router_configurator
 
 load_dotenv()
 
@@ -20,6 +21,9 @@ dp.include_routers(command_router, router_configurator)
 
 async def main() -> None:
     try:
+        # Создаём таблицы в базе данных при запуске
+        await init_db()
+        logger.info("Database initialized")
         logger.info("Start polling")
         await dp.start_polling(bot)
     except KeyboardInterrupt:

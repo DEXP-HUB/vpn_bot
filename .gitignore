@@ -72,3 +72,5 @@ Thumbs.db
 # Local data / temp
 tmp/
 *.tmp
+
+*.db
