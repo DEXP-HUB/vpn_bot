@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from .command import router as command_router
 from .database import init_db
 from .logger import Logger
+from .router_errors import router as errors_router
+from .utils import send_alert
 from .wireguard.router_configurator import router_configurator
 from .users_manage import router as users_manage_router
 
@@ -16,7 +18,7 @@ bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
 dp = Dispatcher(name="Dispatcher")
 logger = Logger.get_logger(dp.name)
 
-dp.include_routers(command_router, router_configurator, users_manage_router)
+dp.include_routers(command_router, router_configurator, users_manage_router, errors_router)
 
 
 async def main() -> None:
@@ -29,7 +31,10 @@ async def main() -> None:
     except KeyboardInterrupt:
         logger.warning("Stop polling", exc_info=True)
     except Exception as e:
-        logger.error("Error", exc_info=True)
+        # Срабатывает только при падении самого polling loop (сеть, токен и т.д.)
+        logger.error("Polling loop crashed", exc_info=True)
+        await send_alert(bot, "🔴 Бот упал!", exception=e)
+
 
 
 if __name__ == "__main__":

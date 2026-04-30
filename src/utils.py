@@ -1,13 +1,30 @@
-"""Утилиты: SSH-соединение и выполнение удалённых команд."""
+"""Утилиты: SSH-соединение, выполнение удалённых команд и отправка алёртов."""
 
 import os
+import traceback
 from pathlib import Path
+from typing import Optional
 
 import paramiko  # pyright: ignore[reportMissingModuleSource]
+from aiogram import Bot
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 
 # Корень проекта (рядом с .env)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+async def send_alert(bot: Bot, text: str, exception: Optional[BaseException] = None) -> None:
+    """Отправляет алёрт администратору с трейсбэком если передано исключение."""
+    if exception is not None:
+        tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+        body = f"{text}\n\n<pre>{tb[-3000:]}</pre>"
+    else:
+        body = text
+    await bot.send_message(
+        chat_id=os.getenv("ADMIN_ID"),
+        text=body,
+        parse_mode="HTML",
+    )
 
 
 class SshConnection:
