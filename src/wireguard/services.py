@@ -115,6 +115,9 @@ class WireguardConfiguretor:
 
         Приватный ключ:  /etc/wireguard/<client_name>_privatekey
         Публичный ключ:  /etc/wireguard/<client_name>_publickey
+
+        После генерации ключей добавляет пира в wg0.conf и регистрирует его
+        в работающем интерфейсе через ``wg set`` без перезапуска WireGuard.
         """
         private_path = f"/etc/wireguard/{client_name}_privatekey"
         public_path = f"/etc/wireguard/{client_name}_publickey"
@@ -131,10 +134,25 @@ class WireguardConfiguretor:
             public_key=public_key,
             allowed_ips=allowed_ips,
         )
+        # Регистрируем пира в живом интерфейсе без перезагрузки WireGuard,
+        # чтобы не обрывать уже активные VPN-соединения других клиентов.
+        self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
 
-    def _reload_wireguard(self, interface: str = "wg0") -> None:
-        """Перезапускает WireGuard-интерфейс на сервере через systemctl reload."""
-        self._executor.run(f"systemctl reload wg-quick@{interface}")
+    def _add_peer_live(
+        self,
+        *,
+        public_key: str,
+        allowed_ips: str,
+        interface: str = "wg0",
+    ) -> None:
+        """Добавляет нового пира в работающий интерфейс WireGuard без перезапуска.
+
+        Использует ``wg set`` вместо reload/restart, чтобы не обрывать
+        уже установленные соединения других клиентов.
+        """
+        self._executor.run(
+            f"wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
+        )
 
     def create_client_config(
         self,
@@ -228,8 +246,7 @@ class WireguardManager:
         """
         try:
             self._configurator.create_client_keys(client_name=client_name)
-            self._configurator._reload_wireguard()
-            logger_wireguard.info(f"WireGuard reloaded after adding peer {client_name}")
+            logger_wireguard.info(f"Peer {client_name} added to WireGuard live")
             return self._configurator.create_client_config(client_name=client_name)
 
         except Exception as e:

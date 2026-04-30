@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, Message
 from fast_depends import Depends, inject
 
-from ..middlewares import LoggingMessageMiddleware
+from ..bot.middlewares import LoggingMessageMiddleware
 
 from .dependency import provide_client_config
 

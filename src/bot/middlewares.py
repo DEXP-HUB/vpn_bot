@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
-from .logger import Logger
+from ..logger import Logger
 
 
 class AdminMessageMiddleware(BaseMiddleware):

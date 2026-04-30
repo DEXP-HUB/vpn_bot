@@ -2,7 +2,7 @@ from aiogram.types import Message
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .database import async_session_maker
+from ..database import async_session_maker
 from .models import User
 
 # Минимальное и максимальное допустимые значения Telegram ID

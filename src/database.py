@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .base import Base
-from . import models
+from .bot import models
 
 # URL для подключения к базе данных SQLite (файл будет создан автоматически)
 DATABASE_URL = "sqlite+aiosqlite:///./vpn_bot.db"

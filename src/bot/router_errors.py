@@ -1,8 +1,8 @@
 from aiogram import Bot, Router
 from aiogram.types import ErrorEvent
 
-from .logger import Logger
-from .utils import send_alert
+from ..logger import Logger
+from ..utils import send_alert
 
 router = Router(name="ErrorsRouter")
 logger = Logger.get_logger(router.name)
