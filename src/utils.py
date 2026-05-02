@@ -1,11 +1,12 @@
 """Утилиты: SSH-соединение, выполнение удалённых команд и отправка алёртов."""
 
 import os
+import subprocess
 import traceback
+import paramiko  # pyright: ignore[reportMissingModuleSource]
+
 from pathlib import Path
 from typing import Optional
-
-import paramiko  # pyright: ignore[reportMissingModuleSource]
 from aiogram import Bot
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 
@@ -86,16 +87,36 @@ class SshConnection:
 
 
 class RemoteCommandExecutor:
-    """Выполняет команды на удалённом хосте через уже подключённый SSH-клиент."""
+    """
+    Выполняет shell-команды либо через SSH-клиент Paramiko (если передан),
+    либо напрямую в локальной системе через subprocess (если client=None).
+    Второй режим используется когда бот запущен на том же сервере, что и VPN.
+    """
 
-    def __init__(self, client: paramiko.SSHClient) -> None:
+    def __init__(self, client: Optional[paramiko.SSHClient] = None) -> None:
         self._client = client
 
     def run(self, command: str) -> str:
         """
-        Выполняет shell-команду на сервере, возвращает stdout (без завершающего \\n).
+        Выполняет shell-команду, возвращает stdout (без завершающего \\n).
         При ненулевом коде выхода — RuntimeError с stderr.
         """
+        if self._client is None:
+            # Локальное выполнение
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+            )
+            output = result.stdout.decode(errors="replace").rstrip("\n")
+            err_text = result.stderr.decode(errors="replace").strip()
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
+                )
+            return output
+
+        # Выполнение через SSH
         _stdin, stdout, stderr = self._client.exec_command(command)
         out_bytes = stdout.read()
         err_bytes = stderr.read()
@@ -115,6 +136,23 @@ class RemoteCommandExecutor:
         Выполняет команду с данными на stdin (как у ``wg pubkey``), возвращает stdout.
         При ненулевом коде выхода — RuntimeError с stderr.
         """
+        if self._client is None:
+            # Локальное выполнение
+            result = subprocess.run(
+                command,
+                shell=True,
+                input=stdin_text.encode(),
+                capture_output=True,
+            )
+            output = result.stdout.decode(errors="replace").rstrip("\n")
+            err_text = result.stderr.decode(errors="replace").strip()
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
+                )
+            return output
+
+        # Выполнение через SSH
         stdin, stdout, stderr = self._client.exec_command(command)
         stdin.write(stdin_text)
         stdin.channel.shutdown_write()
