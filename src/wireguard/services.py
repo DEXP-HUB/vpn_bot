@@ -2,7 +2,9 @@
 
 import io
 import ipaddress
+import paramiko
 
+from typing import Optional
 from src.utils import RemoteCommandExecutor, SshConnection
 from ..logger import Logger
 
@@ -13,19 +15,26 @@ logger_wireguard = Logger.get_logger("wireguard")
 class WireguardConfiguretor:
     """Генерирует ключи WireGuard на удалённом сервере через SSH."""
 
-    def __init__(self, executor: RemoteCommandExecutor) -> None:
+    def __init__(
+        self, 
+        executor: RemoteCommandExecutor, 
+    ) -> None:
         self._executor = executor
 
     @classmethod
-    def from_env(cls) -> "WireguardConfiguretor":
+    def from_env(cls, test: bool = False) -> "WireguardConfiguretor":
         """Создаёт экземпляр WireguardConfiguretor, используя параметры SSH из .env."""
-        connection = SshConnection.from_env()
-        client = connection.connect()
-        executor = RemoteCommandExecutor(client)
-        # Вызывающий обязан закрыть клиент через close().
-        instance = cls(executor)
-        instance._client = client  # type: ignore[attr-defined]
-        return instance
+        if test:
+            return cls(RemoteCommandExecutor())
+
+        else:
+            connection = SshConnection.from_env()
+            client = connection.connect()
+            executor = RemoteCommandExecutor(client)
+            # Вызывающий обязан закрыть клиент через close().
+            instance = cls(executor)
+            instance._client = client  # type: ignore[attr-defined]
+            return instance
 
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
@@ -235,7 +244,7 @@ class WireguardManager:
 
     def __init__(self, configurator: WireguardConfiguretor | None = None) -> None:
         # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
-        self._configurator = configurator or WireguardConfiguretor.from_env()
+        self._configurator = configurator or WireguardConfiguretor.from_env(test=True)
 
     def generate_client_config(self, client_name: str) -> io.BytesIO:
         """
