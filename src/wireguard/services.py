@@ -2,7 +2,8 @@
 import asyncio
 import io
 import ipaddress
-import paramiko
+import os
+import dotenv
 
 from typing import Optional
 from sqlalchemy import select
@@ -14,6 +15,8 @@ from ..bot.models import User
 from ..logger import Logger
 from .models import Config
 
+
+dotenv.load_dotenv()
 
 logger_wireguard = Logger.get_logger("wireguard")
 
@@ -120,7 +123,7 @@ class WireguardConfiguretor:
         network = ipaddress.ip_network(base_network, strict=False)
         used_ips: set[ipaddress.IPv4Address] = set()
         async with async_session_maker() as session:
-            rows = await session.scalars(select(Config.alowed_ips))
+            rows = await session.scalars(select(Config.allowed_ips))
             allowed_ips_values = rows.all()
 
         for allowed_ip in allowed_ips_values:
@@ -180,6 +183,7 @@ class WireguardConfiguretor:
             private_key=private_key,
             allowed_ips=allowed_ips,
             server_public_key=server_public_key,
+            endpoint=f"{os.getenv('SSH_HOST')}:{os.getenv('VPN_PORT')}",
         )
         await self.save_config_to_db(
             config_file=client_config_text,
@@ -217,7 +221,7 @@ class WireguardConfiguretor:
         """
         config = Config(
             config_file=config_file,
-            alowed_ips=allowed_ips,
+            allowed_ips=allowed_ips,
             config_name=config_name,
             user_id=user_id,
         )
@@ -321,16 +325,3 @@ class WireguardManager:
                 "Сначала добавьте пользователя в базу через /add_user."
             )
         return user_id
-
-
-async def main():
-    wg = WireguardManager()
-    config_buffer = await wg.generate_client_config(
-        client_name="test_config",
-        telegram_id=123456789,
-    )
-    text = config_buffer.read().decode()
-    print(text)
-
-if __name__ == "__main__":
-    asyncio.run(main())
