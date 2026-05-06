@@ -7,9 +7,11 @@ from .services import WireguardManager
 
 
 @inject
-def provide_client_config(message: Message) -> BytesIO:
+async def provide_client_config(message: Message) -> BytesIO:
     """Dependency: создаёт и возвращает клиентский .conf файл."""
     manager = WireguardManager()
-    return manager.generate_client_config(
-        client_name=message.from_user.username,
+    client_name = message.from_user.username or str(message.from_user.id)
+    return await manager.generate_client_config(
+        client_name=client_name,
+        telegram_id=message.from_user.id,
     )

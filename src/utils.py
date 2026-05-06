@@ -1,14 +1,15 @@
 """Утилиты: SSH-соединение, выполнение удалённых команд и отправка алёртов."""
 
+import locale
 import os
 import subprocess
 import traceback
-import paramiko  # pyright: ignore[reportMissingModuleSource]
-
 from pathlib import Path
 from typing import Optional
+
 from aiogram import Bot
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
+import paramiko  # pyright: ignore[reportMissingModuleSource]
 
 # Корень проекта (рядом с .env)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -96,6 +97,31 @@ class RemoteCommandExecutor:
     def __init__(self, client: Optional[paramiko.SSHClient] = None) -> None:
         self._client = client
 
+    @staticmethod
+    def _decode_bytes(data: bytes) -> str:
+        """
+        Декодирует вывод команды с учётом разных кодировок окружения.
+        Это особенно важно для Windows, где stderr часто приходит в cp866/cp1251.
+        """
+        candidate_encodings: list[str] = ["utf-8"]
+        system_encoding = locale.getpreferredencoding(False)
+        if system_encoding:
+            candidate_encodings.append(system_encoding)
+        candidate_encodings.extend(["cp866", "cp1251"])
+
+        checked_encodings: set[str] = set()
+        for encoding in candidate_encodings:
+            normalized = encoding.lower()
+            if normalized in checked_encodings:
+                continue
+            checked_encodings.add(normalized)
+            try:
+                return data.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+
+        return data.decode("utf-8", errors="replace")
+
     def run(self, command: str) -> str:
         """
         Выполняет shell-команду, возвращает stdout (без завершающего \\n).
@@ -108,8 +134,8 @@ class RemoteCommandExecutor:
                 shell=True,
                 capture_output=True,
             )
-            output = result.stdout.decode(errors="replace").rstrip("\n")
-            err_text = result.stderr.decode(errors="replace").strip()
+            output = self._decode_bytes(result.stdout).rstrip("\n")
+            err_text = self._decode_bytes(result.stderr).strip()
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
@@ -122,8 +148,8 @@ class RemoteCommandExecutor:
         err_bytes = stderr.read()
         exit_status = stdout.channel.recv_exit_status()
 
-        output = out_bytes.decode(errors="replace").rstrip("\n")
-        err_text = err_bytes.decode(errors="replace").strip()
+        output = self._decode_bytes(out_bytes).rstrip("\n")
+        err_text = self._decode_bytes(err_bytes).strip()
 
         if exit_status != 0:
             raise RuntimeError(
@@ -144,8 +170,8 @@ class RemoteCommandExecutor:
                 input=stdin_text.encode(),
                 capture_output=True,
             )
-            output = result.stdout.decode(errors="replace").rstrip("\n")
-            err_text = result.stderr.decode(errors="replace").strip()
+            output = self._decode_bytes(result.stdout).rstrip("\n")
+            err_text = self._decode_bytes(result.stderr).strip()
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
@@ -160,8 +186,8 @@ class RemoteCommandExecutor:
         err_bytes = stderr.read()
         exit_status = stdout.channel.recv_exit_status()
 
-        output = out_bytes.decode(errors="replace").rstrip("\n")
-        err_text = err_bytes.decode(errors="replace").strip()
+        output = self._decode_bytes(out_bytes).rstrip("\n")
+        err_text = self._decode_bytes(err_bytes).strip()
 
         if exit_status != 0:
             raise RuntimeError(
