@@ -21,39 +21,6 @@ dotenv.load_dotenv()
 logger_wireguard = Logger.get_logger("wireguard")
 
 
-async def insert_test_config(user_id: int = 1) -> int:
-    """Добавляет тестовый конфиг в таблицу configs и возвращает его ID."""
-    test_config = Config(
-        config_file=(
-            "[Interface]\n"
-            "PrivateKey = test_private_key\n"
-            "Address = 10.0.0.2/32\n"
-            "\n"
-            "[Peer]\n"
-            "PublicKey = test_public_key\n"
-            "Endpoint = 127.0.0.1:51820\n"
-            "AllowedIPs = 0.0.0.0/0\n"
-            "PersistentKeepalive = 20\n"
-        ),
-        alowed_ips="10.0.0.2/32",
-        config_name="test_config",
-        user_id=user_id,
-    )
-
-    async with async_session_maker() as session:
-        try:
-            session.add(test_config)
-            await session.commit()
-            await session.refresh(test_config)
-            return test_config.config_id
-        except IntegrityError as error:
-            await session.rollback()
-            raise ValueError(
-                f"Не удалось добавить тестовый конфиг для user_id={user_id}. "
-                "Проверьте, что пользователь существует."
-            ) from error
-
-
 class WireguardConfiguretor:
     """Генерирует ключи WireGuard на удалённом сервере через SSH."""
 
@@ -64,12 +31,9 @@ class WireguardConfiguretor:
         self._executor = executor
 
     @classmethod
-    def from_env(cls, test: bool = False) -> "WireguardConfiguretor":
+    def from_env(cls, test: bool = True) -> "WireguardConfiguretor":
         """Создаёт экземпляр WireguardConfiguretor, используя параметры SSH из .env."""
         if test:
-            return cls(RemoteCommandExecutor())
-
-        else:
             connection = SshConnection.from_env()
             client = connection.connect()
             executor = RemoteCommandExecutor(client)
@@ -77,6 +41,8 @@ class WireguardConfiguretor:
             instance = cls(executor)
             instance._client = client  # type: ignore[attr-defined]
             return instance
+        return cls(RemoteCommandExecutor())
+            
 
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
@@ -245,8 +211,8 @@ class WireguardConfiguretor:
         private_key: str,
         allowed_ips: str,
         server_public_key: str,
-        endpoint: str = "127.0.0.1:51820",
-        dns: str = "1.1.1.1",
+        endpoint: str,
+        dns: str = "1.1.1.1, 1.0.0.1",
     ) -> str:
         """
         Формирует текст клиентского WireGuard-конфига для хранения в БД.
@@ -319,6 +285,7 @@ class WireguardManager:
         async with async_session_maker() as session:
             stmt = select(User.user_id).where(User.telegram_id == telegram_id)
             user_id = await session.scalar(stmt)
+            
         if user_id is None:
             raise ValueError(
                 f"Пользователь с telegram_id={telegram_id} не найден. "
