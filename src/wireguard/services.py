@@ -1,5 +1,3 @@
-"""Сервисные функции WireGuard."""
-import asyncio
 import io
 import ipaddress
 import os

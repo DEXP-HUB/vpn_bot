@@ -33,7 +33,6 @@ async def process_generate_config(
     config_name: BytesIO = Depends(provide_client_config),
 ) -> None:
     """Обрабатывает ввод названия конфигурации и генерирует конфигурацию"""
-    await message.answer("Конфигурация успешно сгенерирована ✅")
     await message.answer_document(
         document=BufferedInputFile(config_name.read(), filename=config_name.name),
         caption="Конфигурация успешно сгенерирована ✅",
