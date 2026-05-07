@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from watchfiles import run_process
+from watchfiles import Change, run_process
 
 
 @dataclass(slots=True)
@@ -31,7 +31,13 @@ class Relouder:
             str(self.project_root),
             target=self.target,
             recursive=self.recursive,
+            watch_filter=self._python_files_filter,
         )
+
+    @staticmethod
+    def _python_files_filter(_: Change, path: str) -> bool:
+        """Разрешает перезапуск только при изменении Python-файлов."""
+        return Path(path).suffix.lower() == ".py"
 
 
 def get_project_root() -> str:

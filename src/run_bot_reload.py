@@ -1,7 +1,7 @@
 import asyncio
 
-from relouder import Relouder, get_project_root
-from src.main import main
+from .relouder import Relouder, get_project_root
+from .main import main
 
 
 def run_bot() -> None:
