@@ -144,7 +144,9 @@ class WireguardConfiguretor:
         # чтобы не обрывать уже активные VPN-соединения других клиентов.
         # self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
         return WireGuardKeys(private_key=private_key, public_key=public_key)
-        # server_public_key = self._executor.run("wg show wg0 public-key").strip()
+
+    def _get_server_public_key(self) -> str:
+        return self._executor.run("wg show wg0 public-key").strip()
 
     def _add_peer_live(
         self,
