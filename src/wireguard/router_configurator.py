@@ -10,9 +10,15 @@ from ..bot.middlewares import LoggingMessageMiddleware
 
 from .dependency import provide_client_config
 from .fsm import UserConfigStates
+from ..bot.middlewares import AdminMessageMiddleware
+from ..bot.repository import UserRepository
+from ..database import async_session_maker
 
 router_configurator = Router(name="RouterConfigurator")
 router_configurator.message.middleware(LoggingMessageMiddleware(router_configurator.name))
+router_configurator.message.middleware(
+    AdminMessageMiddleware(user_repository=UserRepository(async_session_maker))
+)
 
 
 @router_configurator.message(Command("generate_config"))

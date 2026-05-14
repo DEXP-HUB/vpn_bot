@@ -33,7 +33,7 @@ class WireguardConfiguretor:
         repository: ConfigRepository,
     ) -> None:
         self._executor = executor
-        self._repository = repository
+        self._config_repository = repository
 
     @classmethod
     def from_env(cls, test: bool = True) -> "WireguardConfiguretor":
@@ -127,7 +127,7 @@ class WireguardConfiguretor:
         network = ipaddress.ip_network(base_network, strict=False)
         used_ips: set[ipaddress.IPv4Address] = set()
 
-        allowed_ips_values = await self._repository.get_allowed_ips()
+        allowed_ips_values = await self._config_repository.get_allowed_ips()
 
         for allowed_ip in allowed_ips_values:
             try:
@@ -169,14 +169,7 @@ class WireguardConfiguretor:
 
         public_key = self._executor.run(f"cat {public_path}").strip()
         private_key = self._executor.run(f"cat {private_path}").strip()
-        # self._append_peer_to_wg0_conf(
-        #     client_name=client_name,
-        #     public_key=public_key,
-        #     allowed_ips=allowed_ips,
-        # )
-        # Регистрируем пира в живом интерфейсе без перезагрузки WireGuard,
-        # чтобы не обрывать уже активные VPN-соединения других клиентов.
-        # self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
+        
         return WireGuardKeys(private_key=private_key, public_key=public_key)
 
     def _add_peer_live(
@@ -212,7 +205,7 @@ class WireguardConfiguretor:
             config_name=config_name,
             user_id=user_id,
         )
-        await self._repository.add(config)
+        await self._config_repository.add(config)
 
     async def get_client_config(
         self,
@@ -222,13 +215,14 @@ class WireguardConfiguretor:
         Ищет готовый конфиг в БД по ``config_name`` и возвращает его
         содержимое как объект BytesIO.
         """
-        config = await self._repository.get_config_by_name(client_name)
+        config = await self._config_repository.get_config_by_name(client_name)
 
         if config is None:
             raise ValueError(f"Конфиг с config_name='{client_name}' не найден в базе данных.")
 
         buffer = io.BytesIO(config.config_file.encode())
         buffer.name = f"{config.config_name}.conf"
+        
         return buffer
 
 
@@ -282,7 +276,7 @@ class WireguardManager:
 
             config = io.BytesIO(config_file.encode())
             config.name = f"{config_name}.conf"
-            
+
             return config
 
         except Exception as e:

@@ -1,9 +1,10 @@
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
-from aiogram.types import CallbackQuery, Message, TelegramObject
+from aiogram.types import Message, TelegramObject
 
 from ..logger import Logger
+from ..bot.repository import UserRepository
 
 
 class AdminMessageMiddleware(BaseMiddleware):
@@ -16,9 +17,9 @@ class AdminMessageMiddleware(BaseMiddleware):
     :param admin_id: Telegram ID администратора.
     """
 
-    def __init__(self, admin_id: int) -> None:
+    def __init__(self, user_repository: UserRepository) -> None:
         # Сохраняем ID администратора для последующих проверок
-        self.admin_id = admin_id
+        self._user_repository = user_repository
         super().__init__()
 
     async def __call__(
@@ -27,9 +28,12 @@ class AdminMessageMiddleware(BaseMiddleware):
         event: Message,
         data: dict[str, Any],
     ) -> Any:
-        # Пропускаем сообщение только если отправитель является администратором
-        if event.from_user and event.from_user.id == self.admin_id:
-            return await handler(event, data)
+    
+        if self._user_repository is not None:
+            # Проверяем числится ли пользователь в базе данных
+            if await self._user_repository.get_user_id_by_telegram_id(event.from_user.id) is not None:
+                return await handler(event, data)
+
         return None
 
 
