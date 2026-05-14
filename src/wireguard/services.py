@@ -47,7 +47,39 @@ class WireguardConfiguretor:
             return instance
 
         return cls(RemoteCommandExecutor(), ConfigRepository(async_session_maker))
-            
+
+    @staticmethod
+    def _build_client_config(
+        *,
+        private_key: str,
+        allowed_ips: str,
+        server_public_key: str,
+        endpoint: str,
+        dns: str = "1.1.1.1, 1.0.0.1",
+    ) -> str:
+        """
+        Формирует текст клиентского WireGuard-конфига для хранения в БД.
+        """
+        return (
+            "[Interface]\n"
+            f"PrivateKey = {private_key}\n"
+            f"Address = {allowed_ips}\n"
+            f"DNS = {dns}\n"
+            "\n"
+            "[Peer]\n"
+            f"PublicKey = {server_public_key}\n"
+            f"Endpoint = {endpoint}\n"
+            "AllowedIPs = 0.0.0.0/0\n"
+            "PersistentKeepalive = 20\n"
+        )
+
+    @property
+    def get_endpoint(self) -> str:
+        return f"{os.getenv('SSH_HOST')}:{os.getenv('VPN_PORT')}"
+
+    @property
+    def server_public_key(self) -> str:
+        return self._executor.run("wg show wg0 public-key").strip()
 
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
@@ -93,6 +125,7 @@ class WireguardConfiguretor:
         """
         network = ipaddress.ip_network(base_network, strict=False)
         used_ips: set[ipaddress.IPv4Address] = set()
+
         allowed_ips_values = await self._repository.get_allowed_ips()
 
         for allowed_ip in allowed_ips_values:
@@ -116,8 +149,7 @@ class WireguardConfiguretor:
 
     async def create_client_keys(
         self,
-        client_name: str = "goloburdin",
-        user_id: int = 1,
+        config_name: str = "test_config",
     ) -> None:
         """
         Создаёт приватный и публичный ключи клиента WireGuard в /etc/wireguard.
@@ -125,14 +157,15 @@ class WireguardConfiguretor:
         Приватный ключ:  /etc/wireguard/<client_name>_privatekey
         Публичный ключ:  /etc/wireguard/<client_name>_publickey
         """
-        private_path = f"/etc/wireguard/{client_name}_privatekey"
-        public_path = f"/etc/wireguard/{client_name}_publickey"
+        private_path = f"/etc/wireguard/{config_name}_privatekey"
+        public_path = f"/etc/wireguard/{config_name}_publickey"
 
         command = (
             f"cd /etc/wireguard && "
             f"wg genkey | tee {private_path} | wg pubkey | tee {public_path}"
         )
         self._executor.run(command)
+
         public_key = self._executor.run(f"cat {public_path}").strip()
         private_key = self._executor.run(f"cat {private_path}").strip()
         # self._append_peer_to_wg0_conf(
@@ -144,9 +177,6 @@ class WireguardConfiguretor:
         # чтобы не обрывать уже активные VPN-соединения других клиентов.
         # self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
         return WireGuardKeys(private_key=private_key, public_key=public_key)
-
-    def _get_server_public_key(self) -> str:
-        return self._executor.run("wg show wg0 public-key").strip()
 
     def _add_peer_live(
         self,
@@ -182,32 +212,6 @@ class WireguardConfiguretor:
             user_id=user_id,
         )
         await self._repository.add(config)
-    
-
-    @staticmethod
-    def _build_client_config(
-        *,
-        private_key: str,
-        allowed_ips: str,
-        server_public_key: str,
-        endpoint: str,
-        dns: str = "1.1.1.1, 1.0.0.1",
-    ) -> str:
-        """
-        Формирует текст клиентского WireGuard-конфига для хранения в БД.
-        """
-        return (
-            "[Interface]\n"
-            f"PrivateKey = {private_key}\n"
-            f"Address = {allowed_ips}\n"
-            f"DNS = {dns}\n"
-            "\n"
-            "[Peer]\n"
-            f"PublicKey = {server_public_key}\n"
-            f"Endpoint = {endpoint}\n"
-            "AllowedIPs = 0.0.0.0/0\n"
-            "PersistentKeepalive = 20\n"
-        )
 
     async def get_client_config(
         self,
@@ -234,20 +238,39 @@ class WireguardManager:
         # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
         self._configurator = configurator or WireguardConfiguretor.from_env()
 
-    async def generate_client_config(self, client_name: str, telegram_id: int) -> io.BytesIO:
+    async def generate_client_config(self, config_name: str, telegram_id: int) -> io.BytesIO:
         """
         Возвращает клиентский .conf файл, найденный в БД по ``config_name``.
         """
         try:
-            user_id = await self._get_user_id_by_telegram_id(telegram_id)
-            await self._configurator.create_client_keys(
-                client_name=client_name,
-                user_id=user_id,
-            )
-            return await self._configurator.get_client_config(client_name=client_name)
+            keys = await self._configurator.create_client_keys(config_name=config_name)
+            allowed_ips = await self._configurator.calc_next_allowed_ip()
+            server_public_key = self._configurator.server_public_key
 
+            self._append_peer_to_wg0_conf(
+                client_name=config_name,
+                public_key=keys.public_key,
+                allowed_ips=allowed_ips,
+            )
+
+            self._add_peer_live(public_key=keys.public_key, allowed_ips=allowed_ips)
+
+            config_file = self._build_client_config(
+                private_key=keys.private_key,
+                allowed_ips=allowed_ips,
+                server_public_key=server_public_key,
+                endpoint=self._configurator.get_endpoint,
+            )
+            
+            await self._configurator.save_config_to_db(
+                config_file=config_file, 
+                allowed_ips=allowed_ips, 
+                config_name=config_name, 
+                user_id=telegram_id
+            )
+            return config_file
         except Exception as e:
-            logger_wireguard.error(f"Error generating client config for {client_name}: {e}", exc_info=True)
+            logger_wireguard.error(f"Error generating client config for {config_name}: {e}", exc_info=True)
             raise e
             
         finally:

@@ -70,6 +70,7 @@ class AbstractSQLRepository(ABC, Generic[ModelType]):
         async with self._session_maker() as session:
             stmt = select(self.model).where(self.pk_column == entity_id)
             entity = await session.scalar(stmt)
+
             if entity is None:
                 return None
 
@@ -80,6 +81,7 @@ class AbstractSQLRepository(ABC, Generic[ModelType]):
 
             await session.commit()
             await session.refresh(entity)
+            
             return entity
 
     async def delete_by_id(self, entity_id: int) -> bool:
