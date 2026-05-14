@@ -18,9 +18,9 @@ class UserRepository(AbstractSQLRepository[User]):
         """Возвращает первичный ключ модели User."""
         return User.user_id
 
-    async def get_user_by_telegram_id(self, telegram_id: int) -> User | None:
+    async def get_user_id_by_telegram_id(self, telegram_id: int) -> User | None:
         """Возвращает пользователя по telegram_id."""
         async with self._session_maker() as session:
             return await session.scalar(
-                select(User).where(User.telegram_id == telegram_id)
+                select(self.pk_column).where(User.telegram_id == telegram_id)
             )

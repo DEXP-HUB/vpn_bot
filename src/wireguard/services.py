@@ -14,6 +14,7 @@ from .dataclasses import WireGuardKeys
 from .models import Config
 from .repository import ConfigRepository
 from ..bot.models import User
+from ..bot.repository import UserRepository
 from ..logger import Logger
 
 
@@ -234,9 +235,15 @@ class WireguardConfiguretor:
 class WireguardManager:
     """Управляет выдачей клиентского WireGuard-конфига из БД."""
 
-    def __init__(self, configurator: WireguardConfiguretor | None = None) -> None:
+    def __init__(
+        self, 
+        configurator: WireguardConfiguretor | None = None,
+        user_repository: UserRepository | None = None,
+    ) -> None:
         # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
         self._configurator = configurator or WireguardConfiguretor.from_env()
+        self._user_repository = user_repository
+
 
     async def generate_client_config(self, config_name: str, telegram_id: int) -> io.BytesIO:
         """
@@ -244,31 +251,40 @@ class WireguardManager:
         """
         try:
             keys = await self._configurator.create_client_keys(config_name=config_name)
-            allowed_ips = await self._configurator.calc_next_allowed_ip()
+            allowed_ips = await self._configurator._calc_next_allowed_ip()
             server_public_key = self._configurator.server_public_key
+            user_id = await self._user_repository.get_user_id_by_telegram_id(telegram_id)
 
-            self._append_peer_to_wg0_conf(
+            if user_id is None:
+                raise ValueError(f"Пользователь с telegram_id={telegram_id} не найден в базе данных.")
+
+            self._configurator._append_peer_to_wg0_conf(
                 client_name=config_name,
                 public_key=keys.public_key,
                 allowed_ips=allowed_ips,
             )
 
-            self._add_peer_live(public_key=keys.public_key, allowed_ips=allowed_ips)
+            self._configurator._add_peer_live(public_key=keys.public_key, allowed_ips=allowed_ips)
 
-            config_file = self._build_client_config(
+            config_file = self._configurator._build_client_config(
                 private_key=keys.private_key,
                 allowed_ips=allowed_ips,
                 server_public_key=server_public_key,
                 endpoint=self._configurator.get_endpoint,
             )
-            
+
             await self._configurator.save_config_to_db(
                 config_file=config_file, 
                 allowed_ips=allowed_ips, 
                 config_name=config_name, 
-                user_id=telegram_id
+                user_id=user_id
             )
-            return config_file
+
+            config = io.BytesIO(config_file.encode())
+            config.name = f"{config_name}.conf"
+            
+            return config
+
         except Exception as e:
             logger_wireguard.error(f"Error generating client config for {config_name}: {e}", exc_info=True)
             raise e
@@ -277,27 +293,10 @@ class WireguardManager:
             # Всегда закрываем SSH-сессию после выполнения сценария.
             self._configurator.close()
 
-    @staticmethod
-    async def _get_user_id_by_telegram_id(telegram_id: int) -> int:
-        """
-        Возвращает внутренний user_id по telegram_id.
-        """
-        async with async_session_maker() as session:
-            stmt = select(User.user_id).where(User.telegram_id == telegram_id)
-            user_id = await session.scalar(stmt)
-            
-        if user_id is None:
-            raise ValueError(
-                f"Пользователь с telegram_id={telegram_id} не найден. "
-                "Сначала добавьте пользователя в базу через /add_user."
-            )
-        return user_id
 
+# async def main():
+#     wg = WireguardManager.from_env(test=True)
+#     config_file = await wg.generate_client_config(config_name="test_config", telegram_id=1234567890)
+#     print(config_file)
 
-async def main():
-    wg = WireguardConfiguretor.from_env(test=True)
-    keys = await wg.create_client_keys()
-    print(keys)
-    
-
-asyncio.run(main())
+# asyncio.run(main())
