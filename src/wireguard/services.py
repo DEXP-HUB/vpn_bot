@@ -1,6 +1,7 @@
 import io
 import ipaddress
 import os
+import asyncio
 import dotenv
 
 from typing import Optional
@@ -9,9 +10,12 @@ from sqlalchemy.exc import IntegrityError
 
 from src.database import async_session_maker
 from src.utils import RemoteCommandExecutor, SshConnection
+from .dataclasses import WireGuardKeys
+from .models import Config
+from .repository import ConfigRepository
 from ..bot.models import User
 from ..logger import Logger
-from .models import Config
+
 
 
 dotenv.load_dotenv()
@@ -25,8 +29,10 @@ class WireguardConfiguretor:
     def __init__(
         self, 
         executor: RemoteCommandExecutor, 
+        repository: ConfigRepository,
     ) -> None:
         self._executor = executor
+        self._repository = repository
 
     @classmethod
     def from_env(cls, test: bool = True) -> "WireguardConfiguretor":
@@ -36,10 +42,11 @@ class WireguardConfiguretor:
             client = connection.connect()
             executor = RemoteCommandExecutor(client)
             # Вызывающий обязан закрыть клиент через close().
-            instance = cls(executor)
+            instance = cls(executor, ConfigRepository(async_session_maker))
             instance._client = client  # type: ignore[attr-defined]
             return instance
-        return cls(RemoteCommandExecutor())
+
+        return cls(RemoteCommandExecutor(), ConfigRepository(async_session_maker))
             
 
     def close(self) -> None:
@@ -86,9 +93,7 @@ class WireguardConfiguretor:
         """
         network = ipaddress.ip_network(base_network, strict=False)
         used_ips: set[ipaddress.IPv4Address] = set()
-        async with async_session_maker() as session:
-            rows = await session.scalars(select(Config.allowed_ips))
-            allowed_ips_values = rows.all()
+        allowed_ips_values = await self._repository.get_allowed_ips()
 
         for allowed_ip in allowed_ips_values:
             try:
@@ -119,9 +124,6 @@ class WireguardConfiguretor:
 
         Приватный ключ:  /etc/wireguard/<client_name>_privatekey
         Публичный ключ:  /etc/wireguard/<client_name>_publickey
-
-        После генерации ключей добавляет пира в wg0.conf и регистрирует его
-        в работающем интерфейсе через ``wg set`` без перезапуска WireGuard.
         """
         private_path = f"/etc/wireguard/{client_name}_privatekey"
         public_path = f"/etc/wireguard/{client_name}_publickey"
@@ -132,29 +134,17 @@ class WireguardConfiguretor:
         )
         self._executor.run(command)
         public_key = self._executor.run(f"cat {public_path}").strip()
-        allowed_ips = await self._calc_next_allowed_ip()
-        self._append_peer_to_wg0_conf(
-            client_name=client_name,
-            public_key=public_key,
-            allowed_ips=allowed_ips,
-        )
+        private_key = self._executor.run(f"cat {private_path}").strip()
+        # self._append_peer_to_wg0_conf(
+        #     client_name=client_name,
+        #     public_key=public_key,
+        #     allowed_ips=allowed_ips,
+        # )
         # Регистрируем пира в живом интерфейсе без перезагрузки WireGuard,
         # чтобы не обрывать уже активные VPN-соединения других клиентов.
-        self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
-        private_key = self._executor.run(f"cat {private_path}").strip()
-        server_public_key = self._executor.run("wg show wg0 public-key").strip()
-        client_config_text = self._build_client_config(
-            private_key=private_key,
-            allowed_ips=allowed_ips,
-            server_public_key=server_public_key,
-            endpoint=f"{os.getenv('SSH_HOST')}:{os.getenv('VPN_PORT')}",
-        )
-        await self.save_config_to_db(
-            config_file=client_config_text,
-            allowed_ips=allowed_ips,
-            config_name=client_name,
-            user_id=user_id,
-        )
+        # self._add_peer_live(public_key=public_key, allowed_ips=allowed_ips)
+        return WireGuardKeys(private_key=private_key, public_key=public_key)
+        # server_public_key = self._executor.run("wg show wg0 public-key").strip()
 
     def _add_peer_live(
         self,
@@ -189,19 +179,8 @@ class WireguardConfiguretor:
             config_name=config_name,
             user_id=user_id,
         )
-
-        async with async_session_maker() as session:
-            try:
-                # Добавляем и фиксируем конфиг, чтобы запись появилась в БД.
-                session.add(config)
-                await session.commit()
-                await session.refresh(config)
-                return config
-            except IntegrityError as error:
-                await session.rollback()
-                raise ValueError(
-                    "Не удалось сохранить конфигурацию WireGuard в базу данных."
-                ) from error
+        await self._repository.add(config)
+    
 
     @staticmethod
     def _build_client_config(
@@ -236,9 +215,7 @@ class WireguardConfiguretor:
         Ищет готовый конфиг в БД по ``config_name`` и возвращает его
         содержимое как объект BytesIO.
         """
-        async with async_session_maker() as session:
-            stmt = select(Config).where(Config.config_name == client_name)
-            config = await session.scalar(stmt)
+        config = await self._repository.get_config_by_name(client_name)
 
         if config is None:
             raise ValueError(f"Конфиг с config_name='{client_name}' не найден в базе данных.")
@@ -290,3 +267,12 @@ class WireguardManager:
                 "Сначала добавьте пользователя в базу через /add_user."
             )
         return user_id
+
+
+async def main():
+    wg = WireguardConfiguretor.from_env(test=True)
+    keys = await wg.create_client_keys()
+    print(keys)
+    
+
+asyncio.run(main())

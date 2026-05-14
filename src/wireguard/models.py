@@ -13,7 +13,7 @@ class Config(Base):
 
     config_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     date_time: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
     config_file: Mapped[str] = mapped_column(String, nullable=False)
     allowed_ips: Mapped[str] = mapped_column(String, nullable=False)
