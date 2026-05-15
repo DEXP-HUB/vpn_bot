@@ -10,12 +10,17 @@ from fast_depends import Depends, inject
 from .dependency import provide_deleted_user, provide_new_user
 from .fsm import UserManageStates
 from .middlewares import AdminMessageMiddleware, LoggingMessageMiddleware
+from .repository import UserRepository
+from ..database import async_session_maker
 
 load_dotenv()
 
 router = Router(name="Users")
 router.message.middleware(LoggingMessageMiddleware(router.name))
-router.message.middleware(AdminMessageMiddleware(int(getenv("ADMIN_ID"))))
+router.message.middleware(AdminMessageMiddleware(
+    user_repository=UserRepository(async_session_maker)
+    )
+)
 
 
 @router.message(Command("add_user"))
