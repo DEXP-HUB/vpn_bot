@@ -9,16 +9,11 @@ from ..bot.repository import UserRepository
 
 class AdminMessageMiddleware(BaseMiddleware):
     """
-    Мидлвер для проверки прав администратора на входящих сообщениях.
-
-    Пропускает дальше только сообщения от пользователя с указанным admin_id.
-    Остальные сообщения отбрасываются без вызова хендлера.
-
-    :param admin_id: Telegram ID администратора.
+    Мидлвер для проверки числится ли пользователь в базе данных
     """
 
     def __init__(self, user_repository: UserRepository) -> None:
-        # Сохраняем ID администратора для последующих проверок
+        # Сохраняем репозиторий пользователей для последующих проверок
         self._user_repository = user_repository
         super().__init__()
 
