@@ -169,6 +169,9 @@ class WireguardConfiguretor:
 
         public_key = self._executor.run(f"cat {public_path}").strip()
         private_key = self._executor.run(f"cat {private_path}").strip()
+
+        command_delete = f"rm {public_path} {private_path}"
+        self._executor.run(command_delete)
         
         return WireGuardKeys(private_key=private_key, public_key=public_key)
 
