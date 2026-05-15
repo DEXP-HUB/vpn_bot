@@ -1,11 +1,9 @@
-from io import BytesIO
-
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, Message
+from aiogram.methods import SendDocument, SendMessage
+from aiogram.types import Message
 from fast_depends import Depends, inject
-
 from ..bot.middlewares import LoggingMessageMiddleware
 
 from .dependency import provide_client_config
@@ -34,13 +32,10 @@ async def generate_config(
 @router_configurator.message(UserConfigStates.waiting_add_user_config, F.text)
 @inject
 async def process_generate_config(
-    message: Message,
     state: FSMContext,
-    config_name: BytesIO = Depends(provide_client_config),
+    send_command: SendDocument | SendMessage = Depends(provide_client_config),
 ) -> None:
     """Обрабатывает ввод названия конфигурации и генерирует конфигурацию"""
-    await message.answer_document(
-        document=BufferedInputFile(config_name.read(), filename=config_name.name),
-        caption="Конфигурация успешно сгенерирована ✅",
-    ) 
+    await send_command
     await state.clear()
+    
