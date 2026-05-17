@@ -2,6 +2,7 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
+from aiogram.types import BotCommand
 
 from .bot.dispatcher import bot, dp, logger
 from .database import init_db
@@ -26,6 +27,12 @@ async def main() -> None:
         logger.info("Database initialized")
 
         logger.info("Start polling")
+        await bot.set_my_commands([
+            BotCommand(command="start", description="Начать работу с ботом"),
+            BotCommand(command="generate_config", description="Сгенерировать конфигурационный файл WireGuard для твоего устройства"),
+            BotCommand(command="configs_list", description="Показать список всех конфигураций"),
+            BotCommand(command="help", description="Что делает бот и как его использовать"),
+        ])
         await dp.start_polling(bot)
 
     except KeyboardInterrupt:

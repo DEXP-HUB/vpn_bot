@@ -1,6 +1,7 @@
 import os
 
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
 from ..logger import Logger

@@ -3,6 +3,7 @@ from aiogram.types import BufferedInputFile, Message
 from fast_depends import inject
 from .services import WireguardManager
 from .repository import ConfigRepository
+from .models import Config
 from ..bot.repository import UserRepository
 from ..database import async_session_maker
 
@@ -28,3 +29,9 @@ async def provide_client_config(message: Message) -> SendDocument | SendMessage:
         document=BufferedInputFile(config_file.read(), filename=config_file.name),
         caption="Конфигурация успешно сгенерирована ✅",
     )
+
+
+@inject
+async def configs(message: Message) -> list[Config]:
+    """Dependency: возвращает список всех конфигураций."""
+    return await ConfigRepository(async_session_maker).list_all()
