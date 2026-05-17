@@ -1,17 +1,16 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.methods import SendDocument, SendMessage
 from aiogram.types import Message
 from fast_depends import Depends, inject
 
-from .dependency import provide_client_config, configs
+from .dependency import configs, provide_client_config
 from .fsm import UserConfigStates
 from .models import Config
 from ..bot.middlewares import AdminMessageMiddleware
+from ..bot.middlewares import LoggingMessageMiddleware
 from ..bot.repository import UserRepository
 from ..database import async_session_maker
-from ..bot.middlewares import LoggingMessageMiddleware
 
 router_configurator = Router(name="RouterConfigurator")
 router_configurator.message.middleware(LoggingMessageMiddleware(router_configurator.name))
@@ -34,10 +33,9 @@ async def generate_config(
 @inject
 async def process_generate_config(
     state: FSMContext,
-    send_command: SendDocument | SendMessage = Depends(provide_client_config),
+    send_command: None = Depends(provide_client_config),
 ) -> None:
     """Обрабатывает ввод названия конфигурации и генерирует конфигурацию"""
-    await send_command
     await state.clear()
     
 

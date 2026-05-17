@@ -4,15 +4,29 @@ import locale
 import os
 import subprocess
 import traceback
+import io
+import qrcode
+import paramiko  # pyright: ignore[reportMissingModuleSource]
+
 from pathlib import Path
 from typing import Optional
-
 from aiogram import Bot
+from aiogram.types import BufferedInputFile
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
-import paramiko  # pyright: ignore[reportMissingModuleSource]
+
 
 # Корень проекта (рядом с .env)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+
+def build_qr_file(config_text: str, filename: str) -> BufferedInputFile:
+    """Создаёт PNG QR-код из текста WireGuard-конфига."""
+    image = qrcode.make(config_text)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    return BufferedInputFile(buffer.getvalue(), filename=filename)
 
 
 async def send_alert(bot: Bot, text: str, exception: Optional[BaseException] = None) -> None:
