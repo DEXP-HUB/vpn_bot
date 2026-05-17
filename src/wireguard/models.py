@@ -32,6 +32,7 @@ class Config(Base):
     config_file: Mapped[str] = mapped_column(String, nullable=False)
     allowed_ips: Mapped[str] = mapped_column(String, nullable=False)
     config_name: Mapped[str] = mapped_column(String, nullable=False)
+    public_key: Mapped[str] = mapped_column(String, nullable=False)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.user_id"), nullable=False, index=True
     )

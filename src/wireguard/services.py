@@ -1,7 +1,9 @@
+import asyncio
 import io
 import ipaddress
 import os
-import asyncio
+import shlex
+
 import dotenv
 
 from typing import Optional
@@ -11,8 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from src.database import async_session_maker
 from src.utils import RemoteCommandExecutor, SshConnection
 from .dataclasses import WireGuardKeys
-from .models import Config
-from .repository import ConfigRepository
+from .models import Config, Interface
+from .repository import ConfigRepository, InterfaceRepository
 from ..bot.models import User
 from ..bot.repository import UserRepository
 from ..logger import Logger
@@ -31,9 +33,11 @@ class WireguardConfiguretor:
         self, 
         executor: RemoteCommandExecutor, 
         repository: ConfigRepository,
+        interface_repository: InterfaceRepository,
     ) -> None:
         self._executor = executor
         self._config_repository = repository
+        self._interface_repository = interface_repository
 
     @classmethod
     def from_env(cls, test: bool = True) -> "WireguardConfiguretor":
@@ -43,11 +47,19 @@ class WireguardConfiguretor:
             client = connection.connect()
             executor = RemoteCommandExecutor(client)
             # Вызывающий обязан закрыть клиент через close().
-            instance = cls(executor, ConfigRepository(async_session_maker))
+            instance = cls(
+                executor,
+                ConfigRepository(async_session_maker),
+                InterfaceRepository(async_session_maker),
+            )
             instance._client = client  # type: ignore[attr-defined]
             return instance
 
-        return cls(RemoteCommandExecutor(), ConfigRepository(async_session_maker))
+        return cls(
+            RemoteCommandExecutor(),
+            ConfigRepository(async_session_maker),
+            InterfaceRepository(async_session_maker),
+        )
 
     @staticmethod
     def _build_client_config(
@@ -81,6 +93,55 @@ class WireguardConfiguretor:
     @property
     def server_public_key(self) -> str:
         return self._executor.run("wg show wg0 public-key").strip()
+
+    @staticmethod
+    def _build_interface_config(
+        *,
+        interface: Interface,
+        configs: list[Config],
+    ) -> str:
+        """Формирует серверный wg0.conf из интерфейса и клиентских пиров."""
+        sorted_configs = sorted(
+            configs,
+            key=lambda config: ipaddress.ip_interface(config.allowed_ips).ip,
+        )
+        config_parts = [
+            "[Interface]\n"
+            f"Address = {interface.address}\n"
+            f"ListenPort = {interface.listen_port}\n"
+            f"PrivateKey = {interface.private_key}\n"
+            f"PostUp = {interface.post_up}\n"
+            f"PostDown = {interface.post_down}\n"
+        ]
+
+        for config in sorted_configs:
+            config_parts.append(
+                "\n"
+                f"# Client: {config.config_name}\n"
+                "[Peer]\n"
+                f"PublicKey = {config.public_key}\n"
+                f"AllowedIPs = {config.allowed_ips}\n"
+            )
+
+        return "".join(config_parts)
+
+    async def rebuild_interface_config(
+        self,
+        *,
+        interface_name: str = "wg0",
+        wg_conf_path: str = "/etc/wireguard/wg0.conf",
+    ) -> None:
+        """Пересобирает wg0.conf из данных БД и записывает его на сервер."""
+        interface = await self._interface_repository.get_interface_by_name(interface_name)
+
+        if interface is None:
+            raise ValueError(f"Интерфейс с interface_name='{interface_name}' не найден в базе данных.")
+
+        configs = await self._config_repository.list_all()
+        wg_config = self._build_interface_config(interface=interface, configs=configs)
+        command = f"cat > {shlex.quote(wg_conf_path)}"
+
+        self._executor.run_with_stdin(command, wg_config)
 
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
@@ -200,6 +261,7 @@ class WireguardConfiguretor:
         allowed_ips: str,
         config_name: str,
         user_id: int,
+        public_key: str,
     ) -> Config:
         """
         Сохраняет клиентский WireGuard-конфиг в таблицу ``configs``.
@@ -209,6 +271,7 @@ class WireguardConfiguretor:
             allowed_ips=allowed_ips,
             config_name=config_name,
             user_id=user_id,
+            public_key=public_key,
         )
         await self._config_repository.add(config)
 
@@ -276,7 +339,8 @@ class WireguardManager:
                 config_file=config_file, 
                 allowed_ips=allowed_ips, 
                 config_name=config_name, 
-                user_id=user_id
+                user_id=user_id,
+                public_key=keys.public_key,
             )
 
             config = io.BytesIO(config_file.encode())
@@ -293,9 +357,9 @@ class WireguardManager:
             self._configurator.close()
 
 
-# async def main():
-#     wg = WireguardManager.from_env(test=True)
-#     config_file = await wg.generate_client_config(config_name="test_config", telegram_id=1234567890)
-#     print(config_file)
+async def main():
+    wg = WireguardConfiguretor.from_env(test=True)
+    await wg.rebuild_interface_config()
+    wg.close()
 
-# asyncio.run(main())
+asyncio.run(main())
