@@ -62,7 +62,7 @@ class WireguardConfiguretor:
         )
 
     @staticmethod
-    def _build_client_config(
+    def build_client_config(
         *,
         private_key: str,
         allowed_ips: str,
@@ -148,36 +148,8 @@ class WireguardConfiguretor:
         client = getattr(self, "_client", None)
         if client is not None:
             client.close()
-            
-    def _append_peer_to_wg0_conf(
-        self,
-        *,
-        client_name: str,
-        public_key: str,
-        allowed_ips: str = "10.0.0.2/32",
-        wg_conf_path: str = "/etc/wireguard/wg0.conf",
-    ) -> None:
-        """Добавляет секцию Peer в конец wg0.conf."""
-        # Важно: heredoc должен содержать реальные переводы строк,
-        # иначе "EOF" и отступы могут попасть в файл.
-        peer_block = (
-            "\n"
-            f"# Client: {client_name}\n"
-            "[Peer]\n"
-            f"PublicKey = {public_key}\n"
-            f"AllowedIPs = {allowed_ips}\n"
-        )
-
-        command = (
-            "bash -lc '"
-            f"cat >> \"{wg_conf_path}\" <<\"EOF\"\n"
-            f"{peer_block}"
-            "EOF\n"
-            "'"
-        )
-        self._executor.run(command)
         
-    async def _calc_next_allowed_ip(
+    async def calc_next_allowed_ip(
         self,
         *,
         base_network: str = "10.0.0.0/24",
@@ -238,7 +210,7 @@ class WireguardConfiguretor:
         
         return WireGuardKeys(private_key=private_key, public_key=public_key)
 
-    def _add_peer_live(
+    def add_peer_live(
         self,
         *,
         public_key: str,
@@ -275,24 +247,6 @@ class WireguardConfiguretor:
         )
         await self._config_repository.add(config)
 
-    async def get_client_config(
-        self,
-        client_name: str,
-    ) -> io.BytesIO:
-        """
-        Ищет готовый конфиг в БД по ``config_name`` и возвращает его
-        содержимое как объект BytesIO.
-        """
-        config = await self._config_repository.get_config_by_name(client_name)
-
-        if config is None:
-            raise ValueError(f"Конфиг с config_name='{client_name}' не найден в базе данных.")
-
-        buffer = io.BytesIO(config.config_file.encode())
-        buffer.name = f"{config.config_name}.conf"
-        
-        return buffer
-
 
 class WireguardManager:
     """Управляет выдачей клиентского WireGuard-конфига из БД."""
@@ -313,22 +267,19 @@ class WireguardManager:
         """
         try:
             keys = await self._configurator.create_client_keys(config_name=config_name)
-            allowed_ips = await self._configurator._calc_next_allowed_ip()
+            allowed_ips = await self._configurator.calc_next_allowed_ip()
             server_public_key = self._configurator.server_public_key
             user_id = await self._user_repository.get_user_id_by_telegram_id(telegram_id)
 
             if user_id is None:
                 raise ValueError(f"Пользователь с telegram_id={telegram_id} не найден в базе данных.")
 
-            self._configurator._append_peer_to_wg0_conf(
-                client_name=config_name,
+            self._configurator.add_peer_live(
                 public_key=keys.public_key,
                 allowed_ips=allowed_ips,
             )
 
-            self._configurator._add_peer_live(public_key=keys.public_key, allowed_ips=allowed_ips)
-
-            config_file = self._configurator._build_client_config(
+            config_file = self._configurator.build_client_config(
                 private_key=keys.private_key,
                 allowed_ips=allowed_ips,
                 server_public_key=server_public_key,
@@ -342,6 +293,8 @@ class WireguardManager:
                 user_id=user_id,
                 public_key=keys.public_key,
             )
+
+            await self._configurator.rebuild_interface_config()
 
             config = io.BytesIO(config_file.encode())
             config.name = f"{config_name}.conf"
