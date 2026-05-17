@@ -132,8 +132,10 @@ class WireguardConfiguretor:
         for allowed_ip in allowed_ips_values:
             try:
                 iface = ipaddress.ip_interface(allowed_ip)
+                
             except ValueError:
                 continue
+
             if iface.ip in network:
                 used_ips.add(iface.ip)
 

@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute
 
 from .base import Base
+from .bot.models import User
+from .wireguard.models import Interface
 
 
 # URL для подключения к базе данных SQLite (файл будет создан автоматически)
@@ -20,11 +22,23 @@ async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_
 ModelType = TypeVar("ModelType")
 
 
-async def init_db() -> None:
-    """Создаёт все таблицы в базе данных, если они ещё не существуют."""
+async def init_db(admin_id: int, interface_data: dict[str, str | int]) -> None:
+    """Создаёт таблицы и добавляет начальные записи, если их ещё нет."""
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # OR IGNORE не добавит дубль, если администратор уже есть в таблице users.
+        await conn.execute(
+            insert(User)
+            .values(telegram_id=admin_id)
+            .prefix_with("OR IGNORE")
+        )
+        # Фиксированный primary key нужен, чтобы интерфейс не дублировался при запуске.
+        await conn.execute(
+            insert(Interface)
+            .values(interface_id=1, **interface_data)
+            .prefix_with("OR IGNORE")
+        )
 
 
 class AbstractSQLRepository(ABC, Generic[ModelType]):

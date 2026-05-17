@@ -1,3 +1,6 @@
+from os import getenv
+
+from dotenv import load_dotenv
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -5,6 +8,8 @@ from aiogram.types import Message
 from .middlewares import LoggingMessageMiddleware, AdminMessageMiddleware
 from .repository import UserRepository
 from ..database import async_session_maker
+
+load_dotenv()
 
 router = Router(name="CommandRouter")
 
