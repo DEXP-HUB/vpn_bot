@@ -1,6 +1,7 @@
 from aiogram.types import BufferedInputFile, Message
 from fast_depends import inject
 
+from .dataclasses import ClientConfigFiles
 from .models import Config
 from .repository import ConfigRepository
 from .services import WireguardManager
@@ -20,8 +21,8 @@ class ClientConfigProvider:
         self._config_repository = config_repository
         self._user_repository = user_repository
 
-    async def provide_client_config(self, message: Message) -> bytes | None:
-        """Dependency: создаёт клиентский .conf файл и отправляет его вместе с QR-кодом."""
+    async def provide_client_config(self, message: Message) -> ClientConfigFiles | None:
+        """Dependency: создаёт .conf файл и QR-код для клиента WireGuard."""
         config_to_db = await self._config_repository.get_config_by_name(message.text)
 
         if config_to_db is not None:
@@ -38,21 +39,13 @@ class ClientConfigProvider:
         )
 
         config_bytes = config_file.getvalue()
-
-        return config_bytes
-
-    async def qr_code_generator(self, message: Message) -> BufferedInputFile | None:
-        """Генерирует QR-код из клиентского WireGuard-конфига."""
-        config_bytes = await self.provide_client_config(message)
-
-        if config_bytes is None:
-            return None
-
+        config = BufferedInputFile(config_bytes, filename=config_file.name)
         qr_code = build_qr_file(
             config_text=config_bytes.decode("utf-8"),
             filename=f"{message.text}.png",
         )
-        return qr_code
+
+        return ClientConfigFiles(config=config, qr_code=qr_code)
 
 
 @inject

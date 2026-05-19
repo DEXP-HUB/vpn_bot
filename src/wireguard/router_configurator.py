@@ -1,10 +1,10 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, Message
+from aiogram.types import Message
 from fast_depends import Depends, inject
 
-from .dependency import ClientConfigProvider, configs
+from .dependency import ClientConfigFiles, ClientConfigProvider, configs
 from .fsm import UserConfigStates
 from .models import Config
 from .repository import ConfigRepository
@@ -39,12 +39,16 @@ async def generate_config(
 async def process_generate_config(
     state: FSMContext,
     message: Message,
-    file: BufferedInputFile | None = Depends(client_config_provider.qr_code_generator),
+    files: ClientConfigFiles | None = Depends(client_config_provider.provide_client_config),
 ) -> None:
     """Обрабатывает ввод названия конфигурации и генерирует конфигурацию"""
-    if file is not None:
+    if files is not None:
         await message.answer_document(
-            document=file,
+            document=files.config,
+            caption="Конфигурация успешно сгенерирована ✅",
+        )
+        await message.answer_photo(
+            photo=files.qr_code,
             caption="QR-код успешно сгенерирован ✅",
         )
     await state.clear()
