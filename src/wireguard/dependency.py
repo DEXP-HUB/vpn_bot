@@ -9,39 +9,51 @@ from ..database import async_session_maker
 from ..utils import build_qr_file
 
 
-@inject
-async def provide_client_config(message: Message) -> None:
-    """Dependency: создаёт клиентский .conf файл и отправляет его вместе с QR-кодом."""
-    config_repository = ConfigRepository(async_session_maker)
-    config_to_db = await config_repository.get_config_by_name(message.text)
+class ClientConfigProvider:
+    """Создаёт клиентский WireGuard-конфиг и отправляет его пользователю."""
 
-    if config_to_db is not None:
-        await message.answer(text="Имя занято другим файлом. Попробуйте другое имя.")
-        return None
-    
-    manager = WireguardManager(user_repository=UserRepository(async_session_maker))
-    config_name = message.text or str(message.from_user.id)
+    def __init__(
+        self,
+        config_repository: ConfigRepository,
+        user_repository: UserRepository,
+    ) -> None:
+        self._config_repository = config_repository
+        self._user_repository = user_repository
 
-    config_file = await manager.generate_client_config(
-        config_name=config_name,
-        telegram_id=message.from_user.id,
-    )
+    async def provide_client_config(self, message: Message) -> bytes | None:
+        """Dependency: создаёт клиентский .conf файл и отправляет его вместе с QR-кодом."""
+        config_to_db = await self._config_repository.get_config_by_name(message.text)
 
-    config_bytes = config_file.getvalue()
-    qr_code = build_qr_file(
-        config_text=config_bytes.decode("utf-8"),
-        filename=f"{config_name}.png",
-    )
+        if config_to_db is not None:
+            await message.answer(text="Имя занято другим файлом. Попробуйте другое имя.")
+            return None
+        
+        manager = WireguardManager(user_repository=self._user_repository)
+        
+        config_name = message.text or str(message.from_user.id)
 
-    await message.answer_document(
-        document=BufferedInputFile(config_bytes, filename=config_file.name),
-        caption="Конфигурация успешно сгенерирована ✅",
-    )
-    await message.answer_photo(
-        photo=qr_code,
-        caption="QR-код успешно сгенерирован ✅",
-    )
-    return None
+        config_file = await manager.generate_client_config(
+            config_name=config_name,
+            telegram_id=message.from_user.id,
+        )
+
+        config_bytes = config_file.getvalue()
+
+        return config_bytes
+
+    async def qr_code_generator(self, message: Message) -> BufferedInputFile | None:
+        """Генерирует QR-код из клиентского WireGuard-конфига."""
+        config_bytes = await self.provide_client_config(message)
+
+        if config_bytes is None:
+            return None
+
+        qr_code = build_qr_file(
+            config_text=config_bytes.decode("utf-8"),
+            filename=f"{message.text}.png",
+        )
+        return qr_code
+
 
 @inject
 async def configs(message: Message) -> list[Config]:

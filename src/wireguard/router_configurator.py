@@ -1,12 +1,13 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import BufferedInputFile, Message
 from fast_depends import Depends, inject
 
-from .dependency import configs, provide_client_config
+from .dependency import ClientConfigProvider, configs
 from .fsm import UserConfigStates
 from .models import Config
+from .repository import ConfigRepository
 from ..bot.middlewares import AdminMessageMiddleware
 from ..bot.middlewares import LoggingMessageMiddleware
 from ..bot.repository import UserRepository
@@ -16,6 +17,10 @@ router_configurator = Router(name="RouterConfigurator")
 router_configurator.message.middleware(LoggingMessageMiddleware(router_configurator.name))
 router_configurator.message.middleware(
     AdminMessageMiddleware(user_repository=UserRepository(async_session_maker))
+)
+client_config_provider = ClientConfigProvider(
+    config_repository=ConfigRepository(async_session_maker),
+    user_repository=UserRepository(async_session_maker),
 )
 
 
@@ -33,9 +38,15 @@ async def generate_config(
 @inject
 async def process_generate_config(
     state: FSMContext,
-    send_command: None = Depends(provide_client_config),
+    message: Message,
+    file: BufferedInputFile | None = Depends(client_config_provider.qr_code_generator),
 ) -> None:
     """Обрабатывает ввод названия конфигурации и генерирует конфигурацию"""
+    if file is not None:
+        await message.answer_document(
+            document=file,
+            caption="QR-код успешно сгенерирован ✅",
+        )
     await state.clear()
     
 
