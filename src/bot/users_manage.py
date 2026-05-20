@@ -7,7 +7,7 @@ from aiogram.types import Message
 from dotenv import load_dotenv
 from fast_depends import Depends, inject
 
-from .dependency import provide_deleted_user, provide_new_user
+from .dependency import provide_deleted_user, provide_new_user, provide_users_list
 from .fsm import UserManageStates
 from .middlewares import AdminMessageMiddleware, LoggingMessageMiddleware
 from .repository import UserRepository
@@ -65,3 +65,13 @@ async def process_deleted_user(
     """Обрабатывает ввод telegram_id и удаляет пользователя из БД."""
     await message.answer(status)
     await state.clear()
+
+
+@router.message(Command("users"))
+@inject
+async def get_users(
+    message: Message,
+    users_list: str = Depends(provide_users_list),
+) -> None:
+    """Отправляет список всех пользователей из БД."""
+    await message.answer(users_list)

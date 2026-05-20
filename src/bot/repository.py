@@ -1,9 +1,11 @@
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute
-from typing import Any
 
 from ..database import AbstractSQLRepository
 from .models import User
+
 
 class UserRepository(AbstractSQLRepository[User]):
     """Репозиторий для работы с пользователями."""

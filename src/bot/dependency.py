@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..database import async_session_maker
 from .models import User
+from .repository import UserRepository
 
 # Минимальное и максимальное допустимые значения Telegram ID
 TELEGRAM_ID_MIN = 1
@@ -57,3 +58,18 @@ async def provide_deleted_user(message: Message) -> str:
         await session.delete(user)
         await session.commit()
         return f"Пользователь {telegram_id} успешно удалён."
+
+
+async def provide_users_list() -> str:
+    """Dependency: получает пользователей через репозиторий и возвращает готовый текст ответа."""
+    user_repository = UserRepository(async_session_maker)
+    users_list = await user_repository.list_all()
+
+    if not users_list:
+        return "Пользователи не найдены."
+
+    lines = ["Список пользователей:"]
+    for user in users_list:
+        lines.append(f"{user.user_id}. telegram_id: {user.telegram_id}")
+
+    return "\n".join(lines)
