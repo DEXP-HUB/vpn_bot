@@ -23,8 +23,8 @@ router.message.middleware(AdminMessageMiddleware(
 )
 
 
-@router.message(Command("add_user"))
-async def add_user(
+@router.message(Command("add_user_by_id"))
+async def add_user_by_id(
     message: Message,
     state: FSMContext,
 ) -> None:
@@ -35,7 +35,7 @@ async def add_user(
 
 @router.message(UserManageStates.waiting_add_user_id, F.text.isdigit())
 @inject
-async def process_add_user(
+async def process_add_user_by_id(
     message: Message, 
     state: FSMContext,
 ) -> None:
@@ -47,7 +47,7 @@ async def process_add_user(
 
 @router.message(UserManageStates.waiting_add_user_name, F.text)
 @inject
-async def process_add_user_name(
+async def process_add_user_by_name(
     message: Message,
     state: FSMContext,
     status: str = Depends(provide_new_user),

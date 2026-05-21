@@ -32,7 +32,10 @@ async def main() -> None:
             BotCommand(command="start", description="Начать работу с ботом"),
             BotCommand(command="generate_config", description="Сгенерировать конфигурационный файл WireGuard для твоего устройства"),
             BotCommand(command="configs_list", description="Показать список всех конфигураций"),
-            BotCommand(command="help", description="Что делает бот и как его использовать"),
+            BotCommand(command="add_user_by_id", description="Добавить пользователя по telegram_id"),
+            BotCommand(command="delete_user_id", description="Удалить пользователя по telegram_id"),
+            BotCommand(command="delete_user_name", description="Удалить пользователя по имени"),
+            BotCommand(command="users", description="Показать список всех пользователей"),
         ])
         await dp.start_polling(bot)
 
