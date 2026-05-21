@@ -38,9 +38,21 @@ async def add_user(
 async def process_add_user(
     message: Message, 
     state: FSMContext,
-    status: str = Depends(provide_new_user),
 ) -> None:
     """Обрабатывает ввод telegram_id и добавляет пользователя в БД."""
+    await state.set_data({"telegram_id": message.text})
+    await message.answer("Введите имя пользователя:")
+    await state.set_state(UserManageStates.waiting_add_user_name)
+
+
+@router.message(UserManageStates.waiting_add_user_name, F.text)
+@inject
+async def process_add_user_name(
+    message: Message,
+    state: FSMContext,
+    status: str = Depends(provide_new_user),
+) -> None:
+    """Обрабатывает ввод имени пользователя и добавляет пользователя в БД."""
     await message.answer(status)
     await state.clear()
 

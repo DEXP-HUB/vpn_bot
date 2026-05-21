@@ -1,4 +1,6 @@
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -11,32 +13,28 @@ TELEGRAM_ID_MIN = 1
 TELEGRAM_ID_MAX = 9_999_999_999
 
 
-async def provide_new_user(message: Message) -> str:
+async def provide_new_user(message: Message, state: FSMContext) -> str:
     """Dependency: валидирует telegram_id из текста сообщения и записывает нового пользователя в БД.
 
     Возвращает telegram_id при успехе, None — если валидация не прошла или пользователь уже существует.
     """
-    raw = message.text.strip()
+    user_data = await state.get_data()
+    telegram_id = int(user_data["telegram_id"])
+    name = message.text.strip()
 
-    telegram_id = int(raw)
+    user_repository = UserRepository(async_session_maker)
+    # Проверяем через репозиторий, не существует ли пользователь с таким telegram_id
+    existing = await user_repository.get_user_id_by_telegram_id(telegram_id)
 
-    # Проверяем, что значение находится в допустимом диапазоне Telegram ID
-    if not (TELEGRAM_ID_MIN <= telegram_id <= TELEGRAM_ID_MAX):
-        return f"Ошибка: telegram_id должен быть в диапазоне {TELEGRAM_ID_MIN}–{TELEGRAM_ID_MAX}"
+    if existing:
+        return f"Пользователь с telegram_id {telegram_id} уже существует."
 
-    async with async_session_maker() as session:
-        # Проверяем, не существует ли пользователь с таким telegram_id
-        existing = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-        if existing:
-            return f"Пользователь с telegram_id {telegram_id} уже существует."
+    try:
+        await user_repository.add(User(telegram_id=telegram_id, name=name))
+        return f"Пользователь {telegram_id} успешно добавлен."
 
-        try:
-            session.add(User(telegram_id=telegram_id))
-            await session.commit()
-            return f"Пользователь {telegram_id} успешно добавлен."
-        except IntegrityError:
-            await session.rollback()
-            return f"Ошибка: пользователь с telegram_id {telegram_id} уже существует."
+    except IntegrityError:
+        return f"Ошибка: пользователь с telegram_id {telegram_id} уже существует."
 
 
 async def provide_deleted_user(message: Message) -> str:

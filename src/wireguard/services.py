@@ -309,10 +309,3 @@ class WireguardManager:
             # Всегда закрываем SSH-сессию после выполнения сценария.
             self._configurator.close()
 
-
-async def main():
-    wg = WireguardConfiguretor.from_env(test=True)
-    await wg.rebuild_interface_config()
-    wg.close()
-
-asyncio.run(main())

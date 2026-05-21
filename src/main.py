@@ -15,6 +15,7 @@ async def main() -> None:
     try:
         # Создаём таблицы в базе данных при запуске
         admin_id = int(os.environ["ADMIN_ID"])
+        admin_name = os.environ["ADMIN_NAME"]
         interface_data = {
             "address": os.environ["VPN_ADDRESS"],
             "listen_port": int(os.environ["VPN_PORT"]),
@@ -23,7 +24,7 @@ async def main() -> None:
             "private_key": os.environ["VPN_PRIVATE_KEY"],
             "interface_name": os.environ["VPN_INTERFACE_NAME"],
         }
-        await init_db(admin_id, interface_data)
+        await init_db(admin_id, admin_name, interface_data)
         logger.info("Database initialized")
 
         logger.info("Start polling")

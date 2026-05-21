@@ -22,7 +22,11 @@ async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_
 ModelType = TypeVar("ModelType")
 
 
-async def init_db(admin_id: int, interface_data: dict[str, str | int]) -> None:
+async def init_db(
+    admin_id: int,
+    admin_name: str,
+    interface_data: dict[str, str | int],
+) -> None:
     """Создаёт таблицы и добавляет начальные записи, если их ещё нет."""
 
     async with engine.begin() as conn:
@@ -30,7 +34,7 @@ async def init_db(admin_id: int, interface_data: dict[str, str | int]) -> None:
         # OR IGNORE не добавит дубль, если администратор уже есть в таблице users.
         await conn.execute(
             insert(User)
-            .values(telegram_id=admin_id)
+            .values(telegram_id=admin_id, name=admin_name)
             .prefix_with("OR IGNORE")
         )
         # Фиксированный primary key нужен, чтобы интерфейс не дублировался при запуске.

@@ -1,15 +1,18 @@
 """Утилиты: SSH-соединение, выполнение удалённых команд и отправка алёртов."""
 
+import html
+import io
 import locale
 import os
 import subprocess
 import traceback
-import io
+
 import qrcode
 import paramiko  # pyright: ignore[reportMissingModuleSource]
 
 from pathlib import Path
 from typing import Optional
+
 from aiogram import Bot
 from aiogram.types import BufferedInputFile
 from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
@@ -33,9 +36,11 @@ async def send_alert(bot: Bot, text: str, exception: Optional[BaseException] = N
     """Отправляет алёрт администратору с трейсбэком если передано исключение."""
     if exception is not None:
         tb = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        body = f"{text}\n\n<pre>{tb[-3000:]}</pre>"
+        body = f"{html.escape(text)}\n\n<pre>{html.escape(tb[-3000:])}</pre>"
+        
     else:
-        body = text
+        body = html.escape(text)
+
     await bot.send_message(
         chat_id=os.getenv("ADMIN_ID"),
         text=body,

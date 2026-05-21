@@ -1,5 +1,6 @@
 from sqlalchemy import BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import String
 
 from ..base import Base
 from ..wireguard.models import Config
@@ -13,6 +14,7 @@ class User(Base):
     user_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     configs: Mapped[list["Config"]] = relationship(back_populates="user")
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
     def __repr__(self) -> str:
         return f"<User id={self.user_id} telegram_id={self.telegram_id}>"
