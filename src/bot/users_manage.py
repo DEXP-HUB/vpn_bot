@@ -7,7 +7,7 @@ from aiogram.types import Message
 from dotenv import load_dotenv
 from fast_depends import Depends, inject
 
-from .dependency import provide_deleted_user, provide_new_user, provide_users_list
+from .dependency import provide_deleted_user_by_id, provide_deleted_user_by_name, provide_new_user, provide_users_list
 from .fsm import UserManageStates
 from .middlewares import AdminMessageMiddleware, LoggingMessageMiddleware
 from .repository import UserRepository
@@ -57,7 +57,7 @@ async def process_add_user_name(
     await state.clear()
 
 
-@router.message(Command("delete_user"))
+@router.message(Command("delete_user_id"))
 async def deleted_user(
     message: Message,
     state: FSMContext,
@@ -72,12 +72,33 @@ async def deleted_user(
 async def process_deleted_user(
     message: Message,
     state: FSMContext,
-    status: str = Depends(provide_deleted_user),
+    status: str = Depends(provide_deleted_user_by_id),
 ) -> None:
     """Обрабатывает ввод telegram_id и удаляет пользователя из БД."""
     await message.answer(status)
     await state.clear()
 
+
+@router.message(Command("delete_user_name"))
+async def deleted_user_name(
+    message: Message,
+    state: FSMContext,
+) -> None:
+    """Запускает сценарий удаления пользователя через FSM."""
+    await state.set_state(UserManageStates.waiting_delete_user_name)
+    await message.answer("Введите имя пользователя для удаления:")
+
+
+@router.message(UserManageStates.waiting_delete_user_name, F.text)
+@inject
+async def process_deleted_user_name(
+    message: Message,
+    state: FSMContext,
+    status: str = Depends(provide_deleted_user_by_name),
+) -> None:
+    """Обрабатывает ввод имени пользователя и удаляет пользователя из БД."""
+    await message.answer(status)
+    await state.clear()
 
 @router.message(Command("users"))
 @inject

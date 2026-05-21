@@ -37,7 +37,7 @@ async def provide_new_user(message: Message, state: FSMContext) -> str:
         return f"Ошибка: пользователь с telegram_id {telegram_id} уже существует."
 
 
-async def provide_deleted_user(message: Message) -> str:
+async def provide_deleted_user_by_id(message: Message) -> str:
     """Dependency: валидирует telegram_id из текста сообщения и удаляет пользователя из БД."""
     raw = message.text.strip()
 
@@ -56,6 +56,24 @@ async def provide_deleted_user(message: Message) -> str:
         await session.delete(user)
         await session.commit()
         return f"Пользователь {telegram_id} успешно удалён."
+
+
+async def provide_deleted_user_by_name(message: Message) -> str:
+    """Dependency: валидирует имя пользователя из текста сообщения и удаляет пользователя из БД."""
+    name = message.text.strip()
+
+    user_repository = UserRepository(async_session_maker)
+    user = await user_repository.get_user_name_by_name(name)
+
+    if not user:
+        return f"Пользователь с именем {name} не найден."
+
+    is_deleted = await user_repository.delete_user_by_name(name)
+    
+    if not is_deleted:
+        return f"Пользователь с именем {name} не найден."
+
+    return f"Пользователь {name} успешно удалён."
 
 
 async def provide_users_list() -> str:

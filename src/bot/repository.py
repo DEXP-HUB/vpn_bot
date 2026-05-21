@@ -26,3 +26,21 @@ class UserRepository(AbstractSQLRepository[User]):
             return await session.scalar(
                 select(self.pk_column).where(User.telegram_id == telegram_id)
             )
+
+    async def get_user_name_by_name(self, name: str) -> int | None:
+        """Возвращает пользователя по имени."""
+        async with self._session_maker() as session:
+            return await session.scalar(
+                select(self.pk_column).where(User.name == name)
+            )
+
+    async def delete_user_by_name(self, name: str) -> bool:
+        """Удаляет пользователя по имени."""
+        async with self._session_maker() as session:
+            user = await session.scalar(select(User).where(User.name == name))
+            if user is None:
+                return False
+
+            await session.delete(user)
+            await session.commit()
+            return True
