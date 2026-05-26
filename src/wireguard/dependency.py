@@ -3,7 +3,7 @@ from fast_depends import inject
 
 from .dataclasses import ClientConfigFiles
 from .repository import ConfigRepository
-from .services import WireguardManager
+from .services import WireguardConfiguretor, WireguardManager
 from ..bot.repository import UserRepository
 from ..database import async_session_maker
 from ..utils import build_qr_file
@@ -58,8 +58,10 @@ async def configs(message: Message) -> str:
 async def delete_config(message: Message) -> str:
     """Dependency: удаляет конфигурацию из БД."""
     result = await ConfigRepository(async_session_maker).delete_config(message.text)
+    configurator = WireguardConfiguretor.from_env()
 
     if result:
+        await configurator.rebuild_interface_config()
         return f"Конфигурация {message.text} успешно удалена ✅"
 
     return f"Конфигурация {message.text} не найдена ❌"
