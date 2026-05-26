@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import InstrumentedAttribute
 
 from .models import Config, Interface
@@ -34,6 +34,15 @@ class ConfigRepository(AbstractSQLRepository[Config]):
                 select(Config).where(Config.config_name == config_name)
             )
 
+    async def delete_config(self, config_name: str) -> bool:
+        """Удаляет конфигурацию по config_name."""
+        async with self._session_maker() as session:
+            result = await session.execute(
+                delete(Config).where(Config.config_name == config_name)
+            )
+            await session.commit()
+            return result.rowcount > 0
+
 
 class InterfaceRepository(AbstractSQLRepository[Interface]):
     """Репозиторий для работы с интерфейсами WireGuard."""
@@ -54,4 +63,5 @@ class InterfaceRepository(AbstractSQLRepository[Interface]):
             return await session.scalar(
                 select(Interface).where(Interface.interface_name == interface_name)
             )       
+
 

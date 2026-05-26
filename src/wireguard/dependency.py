@@ -2,7 +2,6 @@ from aiogram.types import BufferedInputFile, Message
 from fast_depends import inject
 
 from .dataclasses import ClientConfigFiles
-from .models import Config
 from .repository import ConfigRepository
 from .services import WireguardManager
 from ..bot.repository import UserRepository
@@ -49,6 +48,18 @@ class ClientConfigProvider:
 
 
 @inject
-async def configs(message: Message) -> list[Config]:
+async def configs(message: Message) -> str:
     """Dependency: возвращает список всех конфигураций."""
-    return await ConfigRepository(async_session_maker).list_all()
+    list_configs = await ConfigRepository(async_session_maker).list_all()
+    return "\n".join(config.config_name for config in list_configs)
+
+
+@inject
+async def delete_config(message: Message) -> str:
+    """Dependency: удаляет конфигурацию из БД."""
+    result = await ConfigRepository(async_session_maker).delete_config(message.text)
+
+    if result:
+        return f"Конфигурация {message.text} успешно удалена ✅"
+
+    return f"Конфигурация {message.text} не найдена ❌"

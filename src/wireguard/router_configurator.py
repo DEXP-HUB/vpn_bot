@@ -5,8 +5,8 @@ from aiogram.types import Message
 from fast_depends import Depends, inject
 
 from .dependency import ClientConfigFiles, ClientConfigProvider, configs
+from .dependency import delete_config as delete_config_dependency
 from .fsm import UserConfigStates
-from .models import Config
 from .repository import ConfigRepository
 from ..bot.middlewares import AdminMessageMiddleware
 from ..bot.middlewares import LoggingMessageMiddleware
@@ -31,7 +31,7 @@ async def generate_config(
 ) -> None:
     """Генерирует конфигурацию для клиента WireGuard"""
     await state.set_state(UserConfigStates.waiting_add_user_config)
-    await message.answer("Введите введите название конфигурации:")
+    await message.answer("Введите название конфигурации:")
 
 
 @router_configurator.message(UserConfigStates.waiting_add_user_config, F.text)
@@ -47,10 +47,12 @@ async def process_generate_config(
             document=files.config,
             caption="Конфигурация успешно сгенерирована ✅",
         )
+
         await message.answer_photo(
             photo=files.qr_code,
             caption="QR-код успешно сгенерирован ✅",
         )
+        
     await state.clear()
     
 
@@ -58,7 +60,30 @@ async def process_generate_config(
 @inject
 async def configs_list(
     message: Message,
-    configs: list[Config] = Depends(configs),
+    configs: str = Depends(configs),
 ) -> None:
     """Показывает список всех конфигураций"""
     await message.answer(f"Список всех конфигураций: {configs}")
+
+
+@router_configurator.message(Command("delete_config"))
+async def delete_config(
+    message: Message,
+    state: FSMContext,
+) -> None:
+    """Удаляет конфигурацию"""
+    await state.set_state(UserConfigStates.waiting_delete_user_config)
+    await message.answer("Введите название конфигурации для удаления:")
+
+
+@router_configurator.message(UserConfigStates.waiting_delete_user_config, F.text)
+@inject
+async def process_delete_config(
+    state: FSMContext,
+    message: Message,
+    status: str = Depends(delete_config_dependency),
+) -> None:
+    """Обрабатывает ввод названия конфигурации и удаляет конфигурацию"""
+    await message.answer(status)
+    await state.clear()
+
