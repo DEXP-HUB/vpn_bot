@@ -5,6 +5,7 @@ from .dataclasses import ClientConfigFiles
 from .repository import ConfigRepository
 from .services import WireguardManager
 from .server import WireguardServer
+
 from ..bot.repository import UserRepository
 from ..database import async_session_maker
 from ..utils import build_qr_file
@@ -58,11 +59,13 @@ async def configs(message: Message) -> str:
 @inject
 async def delete_config(message: Message) -> str:
     """Dependency: удаляет конфигурацию из БД."""
-    result = await ConfigRepository(async_session_maker).delete_config(message.text)
+    config = await ConfigRepository(async_session_maker).get_config_by_name(message.text)
     server = WireguardServer.from_env()
 
-    if result:
+    if config:
         await server.rebuild_interface_config()
+        await server.delete_peer_live(public_key=config.public_key)
+        await ConfigRepository(async_session_maker).delete_config(config.config_name)
         return f"Конфигурация {message.text} успешно удалена ✅"
 
     return f"Конфигурация {message.text} не найдена ❌"

@@ -15,11 +15,11 @@ class WireguardServer:
     def __init__(
         self, 
         executor: RemoteCommandExecutor, 
-        repository: ConfigRepository,
+        config_repository: ConfigRepository,
         interface_repository: InterfaceRepository,
     ) -> None:
         self._executor = executor
-        self._config_repository = repository
+        self._config_repository = config_repository
         self._interface_repository = interface_repository
 
     @classmethod
@@ -109,4 +109,15 @@ class WireguardServer:
             f"wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
         )
 
+    async def delete_peer_live(
+        self,
+        *,
+        public_key: str,
+        interface: str = "wg0",
+    ) -> None:
+        """Удаляет пира из работающего интерфейса WireGuard без перезапуска."""
+
+        self._executor.run(
+            f"wg set {interface} peer {public_key} remove"
+        )
 
