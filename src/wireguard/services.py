@@ -4,9 +4,9 @@ import dotenv
 
 from .configurator import WireguardConfiguretor
 from .server import WireguardServer
+from .repository import ConfigRepository
 from ..bot.repository import UserRepository
 from ..logger import Logger
-
 
 dotenv.load_dotenv()
 
@@ -21,13 +21,14 @@ class WireguardManager:
         server: WireguardServer | None = None,
         configurator: WireguardConfiguretor | None = None,
         user_repository: UserRepository | None = None,
+        config_repository: ConfigRepository | None = None,
     ) -> None:
         # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
         self._configurator = configurator or WireguardConfiguretor.from_env()
         self._server = server or WireguardServer.from_env()
         self._user_repository = user_repository
-
-
+        self._config_repository = config_repository
+        
     async def generate_client_config(self, config_name: str, telegram_id: int) -> io.BytesIO:
         """
         Возвращает клиентский .conf файл, найденный в БД по ``config_name``.
@@ -77,3 +78,26 @@ class WireguardManager:
             self._configurator.close()
             self._server.close()
 
+
+    async def remove_client_config(self, config_name: str) -> str | None:
+        """
+        Удаляет клиентский конфиг из БД и сервера.
+        """
+        try:
+            config = await self._config_repository.get_config_by_name(config_name=config_name)
+            
+            if config:
+                await self._server.rebuild_interface_config()
+                await self._server.delete_peer_live(public_key=config.public_key)
+                await self._config_repository.delete_config(config_name=config_name)
+                return f"Конфигурация {config_name} успешно удалена ✅"
+
+            return f"Конфигурация {config_name} не найдена ❌"
+
+        except Exception as e:
+            logger_wireguard.error(f"Error removing client config for {config_name}: {e}", exc_info=True)
+            raise e
+
+        finally:
+            self._configurator.close()
+            self._server.close()
