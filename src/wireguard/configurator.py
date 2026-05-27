@@ -108,24 +108,6 @@ class WireguardConfiguretor:
 
         return "".join(config_parts)
 
-    async def rebuild_interface_config(
-        self,
-        *,
-        interface_name: str = "wg0",
-        wg_conf_path: str = "/etc/wireguard/wg0.conf",
-    ) -> None:
-        """Пересобирает wg0.conf из данных БД и записывает его на сервер."""
-        interface = await self._interface_repository.get_interface_by_name(interface_name)
-
-        if interface is None:
-            raise ValueError(f"Интерфейс с interface_name='{interface_name}' не найден в базе данных.")
-
-        configs = await self._config_repository.list_all()
-        wg_config = self._build_interface_config(interface=interface, configs=configs)
-        command = f"cat > {shlex.quote(wg_conf_path)}"
-
-        self._executor.run_with_stdin(command, wg_config)
-
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
         client = getattr(self, "_client", None)
@@ -192,22 +174,6 @@ class WireguardConfiguretor:
         self._executor.run(command_delete)
         
         return WireGuardKeys(private_key=private_key, public_key=public_key)
-
-    def add_peer_live(
-        self,
-        *,
-        public_key: str,
-        allowed_ips: str,
-        interface: str = "wg0",
-    ) -> None:
-        """Добавляет нового пира в работающий интерфейс WireGuard без перезапуска.
-
-        Использует ``wg set`` вместо reload/restart, чтобы не обрывать
-        уже установленные соединения других клиентов.
-        """
-        self._executor.run(
-            f"wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
-        )
 
     async def save_config_to_db(
         self,

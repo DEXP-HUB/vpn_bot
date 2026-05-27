@@ -3,6 +3,7 @@ import io
 import dotenv
 
 from .configurator import WireguardConfiguretor
+from .server import WireguardServer
 from ..bot.repository import UserRepository
 from ..logger import Logger
 
@@ -17,12 +18,14 @@ class WireguardManager:
     """Управляет выдачей клиентского WireGuard-конфига из БД."""
 
     def __init__(
-        self, 
+        self,
+        server: WireguardServer | None = None,
         configurator: WireguardConfiguretor | None = None,
         user_repository: UserRepository | None = None,
     ) -> None:
         # Позволяет подменить зависимость в тестах, иначе берём SSH-настройки из env.
         self._configurator = configurator or WireguardConfiguretor.from_env()
+        self._server = server or WireguardServer.from_env()
         self._user_repository = user_repository
 
 
@@ -39,7 +42,7 @@ class WireguardManager:
             if user_id is None:
                 raise ValueError(f"Пользователь с telegram_id={telegram_id} не найден в базе данных.")
 
-            self._configurator.add_peer_live(
+            self._server.add_peer_live(
                 public_key=keys.public_key,
                 allowed_ips=allowed_ips,
             )
@@ -59,7 +62,7 @@ class WireguardManager:
                 public_key=keys.public_key,
             )
 
-            await self._configurator.rebuild_interface_config()
+            await self._server.rebuild_interface_config()
 
             config = io.BytesIO(config_file.encode())
             config.name = f"{config_name}.conf"
