@@ -8,7 +8,6 @@ from ..bot.repository import UserRepository
 from ..logger import Logger
 
 
-
 dotenv.load_dotenv()
 
 logger_wireguard = Logger.get_logger("wireguard")
@@ -76,4 +75,5 @@ class WireguardManager:
         finally:
             # Всегда закрываем SSH-сессию после выполнения сценария.
             self._configurator.close()
+            self._server.close()
 

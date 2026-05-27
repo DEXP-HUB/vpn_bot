@@ -69,6 +69,12 @@ class WireguardServer:
 
         return "".join(config_parts)
 
+    def close(self) -> None:
+        """Закрывает SSH-соединение, созданное в from_env()."""
+        client = getattr(self, "_client", None)
+        if client is not None:
+            client.close()
+
     async def rebuild_interface_config(
         self,
         *,
@@ -102,4 +108,5 @@ class WireguardServer:
         self._executor.run(
             f"wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
         )
+
 
