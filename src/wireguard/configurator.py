@@ -1,12 +1,14 @@
 import os
 import ipaddress
-import shlex
+import dotenv
 
 from src.database import async_session_maker
 from src.utils import RemoteCommandExecutor, SshConnection
 from .repository import ConfigRepository, InterfaceRepository
 from .dataclasses import WireGuardKeys
 from .models import Config, Interface
+
+dotenv.load_dotenv()
 
 
 class WireguardConfiguretor:
@@ -23,7 +25,7 @@ class WireguardConfiguretor:
         self._interface_repository = interface_repository
 
     @classmethod
-    def from_env(cls, test: bool = True) -> "WireguardConfiguretor":
+    def from_env(cls, test: bool = bool(int(os.getenv("TEST")))) -> "WireguardConfiguretor":
         """Создаёт экземпляр WireguardConfiguretor, используя параметры SSH из .env."""
         if test:
             connection = SshConnection.from_env()

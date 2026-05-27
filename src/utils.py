@@ -124,18 +124,25 @@ class RemoteCommandExecutor:
         """
         candidate_encodings: list[str] = ["utf-8"]
         system_encoding = locale.getpreferredencoding(False)
+
         if system_encoding:
             candidate_encodings.append(system_encoding)
+
         candidate_encodings.extend(["cp866", "cp1251"])
 
         checked_encodings: set[str] = set()
+
         for encoding in candidate_encodings:
             normalized = encoding.lower()
+
             if normalized in checked_encodings:
                 continue
+
             checked_encodings.add(normalized)
+
             try:
                 return data.decode(encoding)
+
             except UnicodeDecodeError:
                 continue
 
@@ -153,18 +160,23 @@ class RemoteCommandExecutor:
                 shell=True,
                 capture_output=True,
             )
+
             output = self._decode_bytes(result.stdout).rstrip("\n")
             err_text = self._decode_bytes(result.stderr).strip()
+
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
                 )
+
             return output
 
         # Выполнение через SSH
         _stdin, stdout, stderr = self._client.exec_command(command)
+
         out_bytes = stdout.read()
         err_bytes = stderr.read()
+
         exit_status = stdout.channel.recv_exit_status()
 
         output = self._decode_bytes(out_bytes).rstrip("\n")
@@ -174,6 +186,7 @@ class RemoteCommandExecutor:
             raise RuntimeError(
                 f"Команда завершилась с кодом {exit_status}. stderr: {err_text}"
             )
+
         return output
 
     def run_with_stdin(self, command: str, stdin_text: str) -> str:
@@ -189,20 +202,25 @@ class RemoteCommandExecutor:
                 input=stdin_text.encode(),
                 capture_output=True,
             )
+
             output = self._decode_bytes(result.stdout).rstrip("\n")
             err_text = self._decode_bytes(result.stderr).strip()
+
             if result.returncode != 0:
                 raise RuntimeError(
                     f"Команда завершилась с кодом {result.returncode}. stderr: {err_text}"
                 )
+
             return output
 
         # Выполнение через SSH
         stdin, stdout, stderr = self._client.exec_command(command)
         stdin.write(stdin_text)
         stdin.channel.shutdown_write()
+
         out_bytes = stdout.read()
         err_bytes = stderr.read()
+
         exit_status = stdout.channel.recv_exit_status()
 
         output = self._decode_bytes(out_bytes).rstrip("\n")
@@ -212,4 +230,5 @@ class RemoteCommandExecutor:
             raise RuntimeError(
                 f"Команда завершилась с кодом {exit_status}. stderr: {err_text}"
             )
+            
         return output
