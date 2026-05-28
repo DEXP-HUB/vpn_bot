@@ -41,7 +41,7 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 - qrcode для генерации QR-кодов WireGuard.
 
 
-.env
+## .env
 TELEGRAM_BOT_TOKEN=bot_token
 SSH_HOST=test
 VPN_PORT=test
