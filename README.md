@@ -42,21 +42,21 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 
 
 ## .env
-TELEGRAM_BOT_TOKEN=bot_token
-SSH_HOST=test
-VPN_PORT=test
-SSH_PORT=test
-SSH_USERNAME=test
-SSH_PASSWORD=test
-ADMIN_ID=user_telegram_id
-ADMIN_NAME=test
-VPN_INTERFACE_NAME=wg0
-VPN_ADDRESS=10.0.0.1/24
-VPN_PRIVATE_KEY=test
-VPN_ALLOWED_IPS=0.0.0.0/0
-VPN_POST_UP=iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-VPN_POST_DOWN=iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-TEST=0
+- TELEGRAM_BOT_TOKEN=bot_token
+- SSH_HOST=test
+- VPN_PORT=test
+- SSH_PORT=test
+- SSH_USERNAME=test
+- SSH_PASSWORD=test
+- ADMIN_ID=user_telegram_id
+- ADMIN_NAME=test
+- VPN_INTERFACE_NAME=wg0
+- VPN_ADDRESS=10.0.0.1/24
+- VPN_PRIVATE_KEY=test
+- VPN_ALLOWED_IPS=0.0.0.0/0
+- VPN_POST_UP=iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+- VPN_POST_DOWN=iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+- TEST=0
 
 
 Как поднять:
