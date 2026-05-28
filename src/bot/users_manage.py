@@ -100,6 +100,7 @@ async def process_deleted_user_name(
     await message.answer(status)
     await state.clear()
 
+
 @router.message(Command("users"))
 @inject
 async def get_users(

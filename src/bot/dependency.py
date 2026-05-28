@@ -85,7 +85,8 @@ async def provide_users_list() -> str:
         return "Пользователи не найдены."
 
     lines = ["Список пользователей:"]
+    
     for user in users_list:
-        lines.append(f"{user.user_id}. telegram_id: {user.telegram_id}")
+        lines.append(f"{user.user_id}. telegram_id: {user.telegram_id}, name: {user.name}")
 
     return "\n".join(lines)

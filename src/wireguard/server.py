@@ -42,6 +42,12 @@ class WireguardServer:
             instance._client = client  # type: ignore[attr-defined]
             return instance
 
+        return cls(
+            RemoteCommandExecutor(),
+            ConfigRepository(async_session_maker),
+            InterfaceRepository(async_session_maker),
+        )
+
     @staticmethod
     def _build_interface_config(
         *,
@@ -53,6 +59,7 @@ class WireguardServer:
             configs,
             key=lambda config: ipaddress.ip_interface(config.allowed_ips).ip,
         )
+
         config_parts = [
             "[Interface]\n"
             f"Address = {interface.address}\n"
@@ -76,6 +83,7 @@ class WireguardServer:
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
         client = getattr(self, "_client", None)
+
         if client is not None:
             client.close()
 
