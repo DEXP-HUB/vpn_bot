@@ -14,13 +14,13 @@ TELEGRAM_ID_MAX = 9_999_999_999
 
 
 async def provide_new_user(message: Message, state: FSMContext) -> str:
-    """Dependency: валидирует telegram_id из текста сообщения и записывает нового пользователя в БД.
-
+    """
+    Dependency: валидирует telegram_id из текста сообщения и записывает нового пользователя в БД.
     Возвращает telegram_id при успехе, None — если валидация не прошла или пользователь уже существует.
     """
     user_data = await state.get_data()
     telegram_id = int(user_data["telegram_id"])
-    name = message.text.strip()
+    name = message.text.lower().strip()
 
     user_repository = UserRepository(async_session_maker)
     # Проверяем через репозиторий, не существует ли пользователь с таким telegram_id
