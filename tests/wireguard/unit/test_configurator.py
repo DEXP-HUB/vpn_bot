@@ -44,4 +44,7 @@ class TestWireguardConfigurator:
             server_public_key=server_public_key,
             endpoint=endpoint,
         )
+
         assert result == expected
+
+    

@@ -79,37 +79,6 @@ class WireguardConfiguretor:
     def server_public_key(self) -> str:
         return self._executor.run("wg show wg0 public-key").strip()
 
-    @staticmethod
-    def _build_interface_config(
-        *,
-        interface: Interface,
-        configs: list[Config],
-    ) -> str:
-        """Формирует серверный wg0.conf из интерфейса и клиентских пиров."""
-        sorted_configs = sorted(
-            configs,
-            key=lambda config: ipaddress.ip_interface(config.allowed_ips).ip,
-        )
-        config_parts = [
-            "[Interface]\n"
-            f"Address = {interface.address}\n"
-            f"ListenPort = {interface.listen_port}\n"
-            f"PrivateKey = {interface.private_key}\n"
-            f"PostUp = {interface.post_up}\n"
-            f"PostDown = {interface.post_down}\n"
-        ]
-
-        for config in sorted_configs:
-            config_parts.append(
-                "\n"
-                f"# Client: {config.config_name}\n"
-                "[Peer]\n"
-                f"PublicKey = {config.public_key}\n"
-                f"AllowedIPs = {config.allowed_ips}\n"
-            )
-
-        return "".join(config_parts)
-
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
         client = getattr(self, "_client", None)
