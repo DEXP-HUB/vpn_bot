@@ -100,10 +100,12 @@ class WireguardServer:
             raise ValueError(f"Интерфейс с interface_name='{interface_name}' не найден в базе данных.")
 
         configs = await self._config_repository.list_all()
+        
         wg_config = self._build_interface_config(interface=interface, configs=configs)
-        command = f"echo {wg_config} | sudo tee {shlex.quote(wg_conf_path)} > /dev/null"
-        print(command)
+        command = ["sudo", "tee", wg_conf_path]
+
         self._executor.run_with_stdin(command, wg_config)
+       
 
     def add_peer_live(
         self,

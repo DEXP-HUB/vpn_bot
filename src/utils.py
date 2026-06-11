@@ -6,6 +6,7 @@ import locale
 import os
 import subprocess
 import traceback
+import shlex
 
 import qrcode
 import paramiko  # pyright: ignore[reportMissingModuleSource]
@@ -189,16 +190,16 @@ class RemoteCommandExecutor:
 
         return output
 
-    def run_with_stdin(self, command: str, stdin_text: str) -> str:
+    def run_with_stdin(self, command: list, stdin_text: str) -> str:
         """
         Выполняет команду с данными на stdin (как у ``wg pubkey``), возвращает stdout.
+        Команда передаётся списком аргументов (без shell=True).
         При ненулевом коде выхода — RuntimeError с stderr.
         """
         if self._client is None:
             # Локальное выполнение
             result = subprocess.run(
-                command,
-                shell=True,
+                command,                     # список аргументов
                 input=stdin_text.encode(),
                 capture_output=True,
             )
@@ -213,14 +214,14 @@ class RemoteCommandExecutor:
 
             return output
 
-        # Выполнение через SSH
-        stdin, stdout, stderr = self._client.exec_command(command)
+        # Выполнение через SSH (Paramiko принимает только строку)
+        cmd_str = ' '.join(shlex.quote(arg) for arg in command)
+        stdin, stdout, stderr = self._client.exec_command(cmd_str)
         stdin.write(stdin_text)
         stdin.channel.shutdown_write()
 
         out_bytes = stdout.read()
         err_bytes = stderr.read()
-
         exit_status = stdout.channel.recv_exit_status()
 
         output = self._decode_bytes(out_bytes).rstrip("\n")
@@ -230,6 +231,4 @@ class RemoteCommandExecutor:
             raise RuntimeError(
                 f"Команда завершилась с кодом {exit_status}. stderr: {err_text}"
             )
-            
         return output
-
