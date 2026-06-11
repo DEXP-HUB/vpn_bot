@@ -13,7 +13,7 @@ dotenv.load_dotenv()
 
 class WireguardConfiguretor:
     """Генерирует ключи WireGuard на удалённом сервере через SSH."""
-
+    
     def __init__(
         self, 
         executor: RemoteCommandExecutor, 
@@ -77,7 +77,7 @@ class WireguardConfiguretor:
 
     @property
     def server_public_key(self) -> str:
-        return self._executor.run("wg show wg0 public-key").strip()
+        return self._executor.run("sudo wg show wg0 public-key").strip()
 
     def close(self) -> None:
         """Закрывает SSH-соединение, созданное в from_env()."""
@@ -133,15 +133,15 @@ class WireguardConfiguretor:
         public_path = f"/etc/wireguard/{config_name}_publickey"
 
         command = (
-            f"cd /etc/wireguard && "
-            f"wg genkey | tee {private_path} | wg pubkey | tee {public_path}"
+            f"cd /etc/wireguard/ &&"
+            f"sudo wg genkey | sudo tee {private_path} | sudo wg pubkey | sudo tee {public_path}"
         )
         self._executor.run(command)
 
         public_key = self._executor.run(f"cat {public_path}").strip()
         private_key = self._executor.run(f"cat {private_path}").strip()
 
-        command_delete = f"rm {public_path} {private_path}"
+        command_delete = f"sudo rm {public_path} {private_path}"
         self._executor.run(command_delete)
         
         return WireGuardKeys(private_key=private_key, public_key=public_key)

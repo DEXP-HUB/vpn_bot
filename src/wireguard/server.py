@@ -101,8 +101,8 @@ class WireguardServer:
 
         configs = await self._config_repository.list_all()
         wg_config = self._build_interface_config(interface=interface, configs=configs)
-        command = f"cat > {shlex.quote(wg_conf_path)}"
-
+        command = f"echo {wg_config} | sudo tee {shlex.quote(wg_conf_path)} > /dev/null"
+        print(command)
         self._executor.run_with_stdin(command, wg_config)
 
     def add_peer_live(
@@ -118,7 +118,7 @@ class WireguardServer:
         уже установленные соединения других клиентов.
         """
         self._executor.run(
-            f"wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
+            f"sudo wg set {interface} peer {public_key} allowed-ips {allowed_ips}"
         )
 
     async def delete_peer_live(
@@ -130,6 +130,6 @@ class WireguardServer:
         """Удаляет пира из работающего интерфейса WireGuard без перезапуска."""
 
         self._executor.run(
-            f"wg set {interface} peer {public_key} remove"
+            f"sudo wg set {interface} peer {public_key} remove"
         )
 
