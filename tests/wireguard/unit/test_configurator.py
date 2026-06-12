@@ -1,6 +1,11 @@
+import ipaddress
 import pytest
 
+from unittest.mock import AsyncMock, MagicMock
+
 from src.wireguard.configurator import WireguardConfiguretor
+
+from .fixtures import mock_wireguard_configurator
 
 class TestWireguardConfigurator:
     @pytest.mark.parametrize(
@@ -47,4 +52,15 @@ class TestWireguardConfigurator:
 
         assert result == expected
 
-    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mock_wireguard_configurator, expected_exception, expected_ip", [
+        (0, True, None),
+        (1, False, "10.0.0.254/32"),
+        (2, False, "10.0.0.253/32"),
+    ], indirect=["mock_wireguard_configurator"])
+    async def test_calc_next_allowed_ip(self, mock_wireguard_configurator, expected_exception, expected_ip):
+        if expected_exception:
+            with pytest.raises(RuntimeError, match="В подсети WireGuard не осталось свободных адресов AllowedIPs."):
+                await mock_wireguard_configurator.calc_next_allowed_ip()
+        else:
+            assert await mock_wireguard_configurator.calc_next_allowed_ip() == expected_ip
