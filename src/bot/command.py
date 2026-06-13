@@ -42,6 +42,22 @@ WELCOME_TEXT = """
 """
 
 
+HELP_TEXT = """
+• /start Начать работу с ботом,
+• /generate_config Сгенерировать конфигурационный файл WireGuard для твоего устройства,
+• /configs_list Показать список всех конфигураций,
+• /add_user_by_id Добавить пользователя по telegram_id,
+• /delete_user_id Удалить пользователя по telegram_id,
+• /delete_user_name Удалить пользователя по имени,
+• /users Показать список всех пользователей,
+"""
+
+
 @router.message(Command("start"))
 async def start(message: Message) -> None:
     await message.answer(WELCOME_TEXT)
+
+
+@router.message(Command("help"))
+async def help(message: Message) -> None:
+    await message.answer(HELP_TEXT)
