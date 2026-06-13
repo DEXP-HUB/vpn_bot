@@ -1,13 +1,14 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardMarkup, Message
 from fast_depends import Depends, inject
 
-from .dependency import ClientConfigFiles, ClientConfigProvider, configs
+from .dependency import ClientConfigFiles, ClientConfigProvider, keyboard_configs
 from .dependency import delete_config as delete_config_dependency
 from .fsm import UserConfigStates
 from .repository import ConfigRepository
+
 from ..bot.middlewares import AdminMessageMiddleware
 from ..bot.middlewares import LoggingMessageMiddleware
 from ..bot.repository import UserRepository
@@ -60,10 +61,10 @@ async def process_generate_config(
 @inject
 async def configs_list(
     message: Message,
-    configs: str = Depends(configs),
+    keyboard_configs: InlineKeyboardMarkup = Depends(keyboard_configs),
 ) -> None:
     """Показывает список всех конфигураций"""
-    await message.answer(f"Список всех конфигураций: {configs}")
+    await message.answer(f"Список всех конфигураций", reply_markup=keyboard_configs)
 
 
 @router_configurator.message(Command("delete_config"))

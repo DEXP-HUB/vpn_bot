@@ -7,6 +7,7 @@ from .services import WireguardManager
 from .server import WireguardServer
 
 from ..bot.repository import UserRepository
+from ..bot.inline_keyboard import generate_inline_keyboard
 from ..database import async_session_maker
 from ..utils import build_qr_file
 
@@ -50,10 +51,10 @@ class ClientConfigProvider:
 
 
 @inject
-async def configs(message: Message) -> str:
+async def keyboard_configs() -> str:
     """Dependency: возвращает список всех конфигураций."""
     list_configs = await ConfigRepository(async_session_maker).list_all()
-    return "\n".join(config.config_name for config in list_configs)
+    return generate_inline_keyboard([(config.config_name, config.config_name) for config in list_configs])
 
 
 @inject
@@ -61,3 +62,4 @@ async def delete_config(message: Message) -> str:
     """Dependency: удаляет конфигурацию из БД."""
     manager = WireguardManager(config_repository=ConfigRepository(async_session_maker))
     return await manager.remove_client_config(config_name=message.text)
+
