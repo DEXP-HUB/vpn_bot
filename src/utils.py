@@ -21,6 +21,8 @@ from dotenv import load_dotenv  # pyright: ignore[reportMissingImports]
 
 # Корень проекта (рядом с .env)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+path = (_PROJECT_ROOT / ".env")
+load_dotenv(path)
 
 
 
@@ -50,60 +52,72 @@ async def send_alert(bot: Bot, text: str, exception: Optional[BaseException] = N
 
 
 class SshConnection:
-    """Создаёт SSH-клиент Paramiko и устанавливает соединение с сервером."""
+    """
+    Создаёт SSH-клиент Paramiko и устанавливает соединение с сервером.
+    Поддерживает аутентификацию по приватному ключу.
+    """
 
     def __init__(
         self,
         host: str,
         port: int,
         username: str,
-        password: str,
-        *,
         timeout: int = 30,
+        key_filename: str | None = None,
     ) -> None:
         self._host = host
         self._port = port
         self._username = username
-        self._password = password
         self._timeout = timeout
+        self._key_filename = key_filename
 
     @classmethod
     def from_env(cls, env_path: Path | None = None) -> "SshConnection":
         """
-        Загружает .env и собирает параметры SSH_HOST, SSH_PORT, SSH_USERNAME,
-        SSH_PASSWORD для последующего connect().
+        Использует SSH_HOST, SSH_PORT, SSH_USERNAME,
+        SSH_PRIVATE_KEY_PATH для последующего connect().
         """
-        path = env_path or (_PROJECT_ROOT / ".env")
-        load_dotenv(path)
 
         host = os.getenv("SSH_HOST")
         port_raw = os.getenv("SSH_PORT", "22")
         username = os.getenv("SSH_USERNAME")
-        password = os.getenv("SSH_PASSWORD")
+        key_path = os.getenv("SSH_PRIVATE_KEY_PATH")
 
-        if not host or not username or not password:
+        if not host or not username:
+            raise ValueError("В .env должны быть заданы SSH_HOST и SSH_USERNAME.")
+        
+        if not key_path:
             raise ValueError(
-                "В .env должны быть заданы SSH_HOST, SSH_USERNAME и SSH_PASSWORD."
+                "Необходимо указать SSH_PRIVATE_KEY_PATH в .env"
             )
 
         return cls(
             host=host,
             port=int(port_raw),
             username=username,
-            password=password,
+            key_filename=key_path,
         )
 
     def connect(self) -> paramiko.SSHClient:
         """Создаёт клиент, подключается к серверу; вызывающий обязан вызвать close()."""
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(
-            hostname=self._host,
-            port=self._port,
-            username=self._username,
-            password=self._password,
-            timeout=self._timeout,
-        )
+        
+        connect_kwargs = {
+            "hostname": self._host,
+            "port": self._port,
+            "username": self._username,
+            "timeout": self._timeout,
+        }
+        
+        if self._key_filename:
+            connect_kwargs["key_filename"] = self._key_filename
+
+        else:
+            raise RuntimeError("Нет ключа для аутентификации")
+        
+        client.connect(**connect_kwargs)
+
         return client
 
 
@@ -172,7 +186,6 @@ class RemoteCommandExecutor:
 
             return output
 
-        # Выполнение через SSH
         _stdin, stdout, stderr = self._client.exec_command(command)
 
         out_bytes = stdout.read()
@@ -199,7 +212,7 @@ class RemoteCommandExecutor:
         if self._client is None:
             # Локальное выполнение
             result = subprocess.run(
-                command,                     # список аргументов
+                command,
                 input=stdin_text.encode(),
                 capture_output=True,
             )
@@ -214,7 +227,7 @@ class RemoteCommandExecutor:
 
             return output
 
-        # Выполнение через SSH (Paramiko принимает только строку)
+
         cmd_str = ' '.join(shlex.quote(arg) for arg in command)
         stdin, stdout, stderr = self._client.exec_command(cmd_str)
         stdin.write(stdin_text)
@@ -231,4 +244,5 @@ class RemoteCommandExecutor:
             raise RuntimeError(
                 f"Команда завершилась с кодом {exit_status}. stderr: {err_text}"
             )
+        
         return output

@@ -77,3 +77,4 @@ tmp/
 .coverage
 coverage.xml
 .pytest_cache
+ssh_key
