@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 def generate_inline_keyboard(
     buttons_data: list[tuple[str, str]],
-    row_widths: list[int] = None
+    row_widths: list[int] = [1, 1]
 ) -> InlineKeyboardMarkup:
     """
     Генерация инлайн-клавиатуры с помощью InlineKeyboardBuilder.

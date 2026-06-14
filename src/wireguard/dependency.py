@@ -1,5 +1,8 @@
-from aiogram.types import BufferedInputFile, Message
+import io
+
 from fast_depends import inject
+
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from .dataclasses import ClientConfigFiles
 from .repository import ConfigRepository
@@ -55,6 +58,17 @@ async def keyboard_configs() -> str:
     """Dependency: возвращает список всех конфигураций."""
     list_configs = await ConfigRepository(async_session_maker).list_all()
     return generate_inline_keyboard([(config.config_name, config.config_name) for config in list_configs])
+
+
+@inject
+async def config_data(call: CallbackQuery):
+    """Dependency: Возвращает информацию о конфигурации подключения пользователя"""
+    config = await ConfigRepository(async_session_maker).get_config_by_name(call.data)
+    config_file = io.BytesIO(config.config_file.encode())
+    config_file.name = f"{config.config_name}.conf"
+    config_bytes = config_file.getvalue()
+    config_buffered = BufferedInputFile(config_bytes, filename=config_file.name)
+    return config_buffered
 
 
 @inject

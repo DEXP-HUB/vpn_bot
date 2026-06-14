@@ -1,7 +1,7 @@
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, Message
+from aiogram.types import InlineKeyboardMarkup, Message, CallbackQuery
 from fast_depends import Depends, inject
 
 from .dependency import ClientConfigFiles, ClientConfigProvider, keyboard_configs
