@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from aiogram.types import BufferedInputFile
+
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup
 
 @dataclass
 class WireGuardKeys:
@@ -13,5 +14,6 @@ class WireGuardKeys:
 class ClientConfigFiles:
     """Файлы клиентской конфигурации для отправки пользователю."""
     
-    config: BufferedInputFile
-    qr_code: BufferedInputFile
+    config: BufferedInputFile = None
+    qr_code: BufferedInputFile = None
+    inline_keyboard: InlineKeyboardMarkup = None

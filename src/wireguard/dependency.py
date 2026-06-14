@@ -68,7 +68,8 @@ async def config_data(call: CallbackQuery):
     config_file.name = f"{config.config_name}.conf"
     config_bytes = config_file.getvalue()
     config_buffered = BufferedInputFile(config_bytes, filename=config_file.name)
-    return config_buffered
+    keyboard = generate_inline_keyboard([("Удалить", config.config_name), ("QR-code", config.config_name)])
+    return ClientConfigFiles(config=config_buffered, inline_keyboard=keyboard)
 
 
 @inject
