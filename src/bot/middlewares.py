@@ -1,7 +1,7 @@
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from ..logger import Logger
 from ..bot.repository import UserRepository
@@ -69,3 +69,39 @@ class LoggingMessageMiddleware(BaseMiddleware):
 
         return await handler(event, data)
 
+
+class LoggingCallbackMiddleware(BaseMiddleware):
+    """
+    Мидлвер для логирования входящих сообщений от пользователей.
+
+    Перехватывает каждое входящее Callback перед передачей в хендлер,
+    записывает в лог информацию о пользователе и тексте сообщения.
+
+    :param logger_name: Имя логгера. По умолчанию — имя класса.
+    """
+
+    def __init__(self, logger_name: str = "CallbackLoggingMiddleware"):
+        self.logger = Logger.get_logger(logger_name)
+        super().__init__()
+
+    async def __call__(
+        self,
+        handler: Callable[[CallbackQuery, Dict[str, Any]], Awaitable[Any]],
+        event: CallbackQuery,
+        data: Dict[str, Any]
+    ) -> Any:
+        user = event.from_user
+        username = f"@{user.username}" if user.username else f"id={user.id}"
+        full_name = user.full_name or "Unknown"
+        chat_id = event.message.chat.id if event.message else None
+        callback_data = event.data
+
+        self.logger.info(
+            "Callback from %s (%s) [chat_id=%s]: data=%s",
+            full_name,
+            username,
+            chat_id,
+            callback_data,
+        )
+
+        return await handler(event, data)

@@ -8,14 +8,14 @@ from .models import Config
 from .dependency import config_file, qr_config, config_data
 
 
-from ..bot.middlewares import AdminMessageMiddleware, LoggingMessageMiddleware
+from ..bot.middlewares import AdminMessageMiddleware, LoggingMessageMiddleware, LoggingCallbackMiddleware
 from ..bot.repository import UserRepository
 
 from ..database import async_session_maker
 
 
 callback_router = Router(name="CallbackRouter")
-callback_router.message.middleware(LoggingMessageMiddleware(callback_router.name))
+callback_router.callback_query.middleware(LoggingCallbackMiddleware(callback_router.name))
 callback_router.message.middleware(
     AdminMessageMiddleware(user_repository=UserRepository(async_session_maker))
 )
