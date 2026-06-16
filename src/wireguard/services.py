@@ -1,12 +1,18 @@
 import io
-
 import dotenv
 
+from aiogram.types import BufferedInputFile
+
+from .dataclasses import ClientConfigFiles
 from .configurator import WireguardConfiguretor
 from .server import WireguardServer
 from .repository import ConfigRepository
+
+from ..bot.inline_keyboard import generate_inline_keyboard
 from ..bot.repository import UserRepository
 from ..logger import Logger
+from ..database import async_session_maker, AbstractSQLRepository
+from ..utils import build_qr_file
 
 dotenv.load_dotenv()
 
@@ -101,3 +107,33 @@ class WireguardManager:
         finally:
             self._configurator.close()
             self._server.close()
+
+
+class ConfigType:
+    def __init__(self, config_repository: ConfigRepository) -> None:
+        self.config_repository = config_repository(async_session_maker)
+
+    async def config_file(self, name: str):
+        config = await self.config_repository.get_config_by_name(name)
+        config_file = io.BytesIO(config.config_file.encode())
+        config_file.name = f"{config.config_name}.conf"
+        config_bytes = config_file.getvalue()
+        config_buffered = BufferedInputFile(config_bytes, filename=config_file.name)
+        keyboard = generate_inline_keyboard(
+            [("Удалить", f"delete-{config.config_name}"), ("QR-code", f"QR-{config.config_name}")]
+        )
+        return ClientConfigFiles(config=config_buffered, inline_keyboard=keyboard)
+    
+    async def config_qr(self, name: str):
+        config = await self.config_repository.get_config_by_name(name)
+        config_file = io.BytesIO(config.config_file.encode())
+        config_file.name = f"{config.config_name}.conf"
+        config_bytes = config_file.getvalue()
+        qr_code = build_qr_file(
+            config_text=config_bytes.decode("utf-8"),
+            filename=f"{name}.png",
+        )
+        keyboard = generate_inline_keyboard(
+            [("Удалить", f"delete-{config.config_name}"), ("Config файл", f"config-{config.config_name}")]
+        )
+        return ClientConfigFiles(qr_code=qr_code, inline_keyboard=keyboard)

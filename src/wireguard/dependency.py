@@ -6,7 +6,7 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from .dataclasses import ClientConfigFiles
 from .repository import ConfigRepository
-from .services import WireguardManager
+from .services import ConfigType, WireguardManager
 from .server import WireguardServer
 
 from ..bot.repository import UserRepository
@@ -68,8 +68,39 @@ async def config_data(call: CallbackQuery):
     config_file.name = f"{config.config_name}.conf"
     config_bytes = config_file.getvalue()
     config_buffered = BufferedInputFile(config_bytes, filename=config_file.name)
-    keyboard = generate_inline_keyboard([("Удалить", config.config_name), ("QR-code", config.config_name)])
+    keyboard = generate_inline_keyboard([
+        ("Удалить", f"delete-{config.config_name}"), ("QR-code", f"QR-{config.config_name}")
+        ]
+    )
     return ClientConfigFiles(config=config_buffered, inline_keyboard=keyboard)
+
+
+@inject
+async def qr_config(call: CallbackQuery):
+    """
+    Dependancy: Получает из ConfigType QR-code конфигурации и возвращает ClientConfigFiles
+    Параметры:
+    call: CallbackQuery
+    """
+
+    config_type = ConfigType(ConfigRepository)
+    qr_code = await config_type.config_qr(call.data.split('-', 1)[1])
+
+    return qr_code
+
+
+@inject
+async def config_file(call: CallbackQuery):
+    """
+    Dependancy: Получает из ConfigType файл конфигурации и возвращает ClientConfigFiles
+    Параметры:
+    call: CallbackQuery
+    """
+
+    config_type = ConfigType(ConfigRepository)
+    file = await config_type.config_file(call.data.split('-', 1)[1])
+
+    return file
 
 
 @inject
