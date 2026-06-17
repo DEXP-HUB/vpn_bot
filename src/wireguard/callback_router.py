@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, Message, CallbackQuery, Buffered
 
 from .dataclasses import ClientConfigFiles
 from .models import Config
-from .dependency import config_file, qr_config, config_data, delete_by_callback
+from .dependency import config_file, qr_config, config_data, delete_by_callback, keyboard_configs
 
 
 from ..bot.middlewares import AdminMessageMiddleware, LoggingMessageMiddleware, LoggingCallbackMiddleware
@@ -59,9 +59,22 @@ async def delete_config_user(call: CallbackQuery, status: str | None = Depends(d
     await call.message.answer(status)
 
 
+@callback_router.callback_query(F.data == "Назад")
+@inject
+async def back_to_list(
+    call: CallbackQuery,  
+    keyboard_configs: InlineKeyboardMarkup = Depends(keyboard_configs)
+) -> None:
+    """Показывает список всех конфигураций"""
+    await call.message.delete()
+    await call.message.answer(f"Список всех конфигураций", reply_markup=keyboard_configs)
+
+
+
+
 @callback_router.callback_query(F.data)
 @inject
-async def configs_users(call: CallbackQuery, config: ClientConfigFiles = Depends(config_data)) -> None:
+async def config_user(call: CallbackQuery, config: ClientConfigFiles = Depends(config_data)) -> None:
     """
     Callback Тригер: Реагирует на Callback Data
     вызывает Dependancy config_data для получения всех 

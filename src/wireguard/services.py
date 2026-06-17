@@ -120,7 +120,11 @@ class ConfigType:
         config_bytes = config_file.getvalue()
         config_buffered = BufferedInputFile(config_bytes, filename=config_file.name)
         keyboard = generate_inline_keyboard(
-            [("Удалить", f"delete-{config.config_name}"), ("QR-code", f"QR-{config.config_name}")]
+            [
+                ("Удалить", f"delete-{config.config_name}"), 
+                ("QR-code", f"QR-{config.config_name}"),
+                ("Назад", "Назад"),
+            ]
         )
         return ClientConfigFiles(config=config_buffered, inline_keyboard=keyboard)
     
@@ -134,6 +138,9 @@ class ConfigType:
             filename=f"{name}.png",
         )
         keyboard = generate_inline_keyboard(
-            [("Удалить", f"delete-{config.config_name}"), ("Config файл", f"config-{config.config_name}")]
+            [
+                ("Удалить", f"delete-{config.config_name}"), 
+                ("Config файл", f"config-{config.config_name}"),
+            ]
         )
         return ClientConfigFiles(qr_code=qr_code, inline_keyboard=keyboard)
