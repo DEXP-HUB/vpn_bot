@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, Message, CallbackQuery, Buffered
 
 from .dataclasses import ClientConfigFiles
 from .models import Config
-from .dependency import config_file, qr_config, config_data
+from .dependency import config_file, qr_config, config_data, delete_by_callback
 
 
 from ..bot.middlewares import AdminMessageMiddleware, LoggingMessageMiddleware, LoggingCallbackMiddleware
@@ -47,9 +47,26 @@ async def get_config_file(call: CallbackQuery, config: ClientConfigFiles = Depen
     await call.message.answer_document(document=config.config, reply_markup=config.inline_keyboard)
 
 
+@callback_router.callback_query(F.data.startswith("delete-"))
+@inject
+async def delete_config_user(call: CallbackQuery, status: str | None = Depends(delete_by_callback)) -> None:
+    """
+    Callback Тригер: Реагирует на Callback Data с префиксом delete-
+    вызывает Dependancy delete_by_callback для удаления конфиг файла
+    и отпровляет статус пользователю.
+    """
+    await call.message.delete()
+    await call.message.answer(status)
+
+
 @callback_router.callback_query(F.data)
 @inject
 async def configs_users(call: CallbackQuery, config: ClientConfigFiles = Depends(config_data)) -> None:
+    """
+    Callback Тригер: Реагирует на Callback Data
+    вызывает Dependancy config_data для получения всех 
+    конфигов пользователей и отпровляет список с клавиатурой из конфигов
+    """
     await call.message.delete()
     await call.message.answer_document(
         document=config.config, 

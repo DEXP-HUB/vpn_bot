@@ -105,7 +105,13 @@ async def config_file(call: CallbackQuery):
 
 @inject
 async def delete_config(message: Message) -> str:
-    """Dependency: удаляет конфигурацию из БД."""
+    """Dependency: удаляет конфигурацию из БД по message.text"""
     manager = WireguardManager(config_repository=ConfigRepository(async_session_maker))
     return await manager.remove_client_config(config_name=message.text)
 
+
+@inject
+async def delete_by_callback(call: CallbackQuery) -> str:
+    """Dependency: удаляет конфигурацию из БД по call.data"""
+    manager = WireguardManager(config_repository=ConfigRepository(async_session_maker))
+    return await manager.remove_client_config(config_name=call.data.split('-', 1)[1])
