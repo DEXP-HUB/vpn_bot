@@ -47,7 +47,7 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 - VPN_PORT=test
 - SSH_PORT=test
 - SSH_USERNAME=test
-- SSH_PASSWORD=test
+- SSH_PRIVATE_KEY_PATH=ssh_key
 - ADMIN_ID=user_telegram_id
 - ADMIN_NAME=test
 - VPN_INTERFACE_NAME=wg0
