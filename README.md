@@ -64,4 +64,4 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 2) cd vpn_bot 
 3) nano .env <- заполнить данными из раздела .env
 4) sudo docker build --no-cache -t vpn_bot .
-5) sudo docker run --name vpn_bot --env-file .env -v vpn_data:/app -d vpn_bot
+5) sudo docker run --name vpn_bot --env-file .env -v vpn_data:/app/data -d vpn_bot
