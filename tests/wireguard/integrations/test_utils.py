@@ -13,5 +13,3 @@ class TestUtils:
         transport = ssh_connect.get_transport()
         status = transport.is_active()
         assert status is True
-        
-        
