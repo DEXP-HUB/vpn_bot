@@ -11,7 +11,6 @@ class Logger:
     именем возвращает уже существующий экземпляр без переинициализации.
     """
 
-    # Словарь хранит по одному логгеру на каждое уникальное имя
     _instances: dict[str, logging.Logger] = {}
 
     @classmethod
@@ -38,7 +37,6 @@ class Logger:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-        # Формируем путь к файлу логов в корне проекта (на уровень выше `src`).
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         log_path = os.path.join(project_root, "bot.log")
         file_handler = logging.FileHandler(log_path, encoding="utf-8")
