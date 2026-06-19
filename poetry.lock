@@ -45,6 +45,24 @@ signature = ["cryptography (>=43.0.0)"]
 test = ["aresponses (>=2.1.6,<2.2.0)", "pycryptodomex (>=3.19.0,<3.20.0)", "pytest (>=7.4.2,<7.5.0)", "pytest-aiohttp (>=1.0.5,<1.1.0)", "pytest-asyncio (>=0.21.1,<0.22.0)", "pytest-cov (>=4.1.0,<4.2.0)", "pytest-html (>=4.0.2,<4.1.0)", "pytest-lazy-fixture (>=0.6.3,<0.7.0)", "pytest-mock (>=3.12.0,<3.13.0)", "pytest-mypy (>=0.10.3,<0.11.0)", "pytz (>=2023.3,<2024.0)"]
 
 [[package]]
+name = "aiogram-test-framework"
+version = "1.0.3"
+description = "A testing framework for Aiogram 3.x Telegram bots"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "aiogram_test_framework-1.0.3-py3-none-any.whl", hash = "sha256:f0867a85e8b9c6b67dca2a3141d46202d71b5bb242fd664906d68169c6203b0c"},
+    {file = "aiogram_test_framework-1.0.3.tar.gz", hash = "sha256:2fc1acbc69d04f3338cf5750c35bf69d7e692954ae45e4cd3139d020d12e1223"},
+]
+
+[package.dependencies]
+aiogram = ">=3.4.0"
+
+[package.extras]
+dev = ["pytest (>=7.0.0)", "pytest-asyncio (>=0.21.0)", "pytest-cov (>=4.0.0)"]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
 description = "Happy Eyeballs for asyncio"
@@ -2196,4 +2214,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "0c69ddc6ad523b5677651cb62edf65b26bb715d2126ea3e3eaad9b622894549c"
+content-hash = "19617c94426d32ccf3e2bc525cf7961236fd85d80eba0c2e8e9de5689a135c3b"
