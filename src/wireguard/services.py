@@ -96,6 +96,7 @@ class WireguardManager:
                 await self._server.rebuild_interface_config()
                 await self._server.delete_peer_live(public_key=config.public_key)
                 await self._config_repository.delete_config(config_name=config_name)
+                
                 return f"Конфигурация {config_name} успешно удалена ✅"
 
             return f"Конфигурация {config_name} не найдена ❌"

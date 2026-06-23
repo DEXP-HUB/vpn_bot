@@ -56,7 +56,7 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 - VPN_ALLOWED_IPS=0.0.0.0/0
 - VPN_POST_UP=iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 - VPN_POST_DOWN=iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-- TEST=0
+- TEST=1
 
 
 Как поднять:
