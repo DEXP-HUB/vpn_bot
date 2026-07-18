@@ -62,6 +62,8 @@ Telegram-бот для автоматической выдачи VPN-конфи�
 Как поднять:
 1) git clone https://github.com/DEXP-HUB/vpn_bot.git
 2) cd vpn_bot 
-3) nano .env <- заполнить данными из раздела .env
-4) sudo docker build --no-cache -t vpn_bot .
-5) sudo docker run --name vpn_bot --env-file .env -v vpn_data:/app/data -d vpn_bot
+3) touch ssh_key
+4) nano ssh_key <- Заполнить своим приватным ssh ключом для подключения по SSH
+5) nano .env <- заполнить данными из раздела .env
+6) sudo docker build --no-cache -t vpn_bot .
+7) sudo docker run -d --restart unless-stopped --name vpn_bot --env-file .env -v vpn_data:/app/data vpn_bot

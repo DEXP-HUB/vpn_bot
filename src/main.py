@@ -3,6 +3,7 @@ import os
 
 from dotenv import load_dotenv
 from aiogram.types import BotCommand
+from aiogram.utils.backoff import BackoffConfig
 
 from .bot.dispatcher import bot, dp, logger
 from .database import init_db
@@ -32,7 +33,16 @@ async def main() -> None:
             BotCommand(command="start", description="Начать работу с ботом"),
             BotCommand(command="help", description="Узнать функционал бота"),
         ])
-        await dp.start_polling(bot)
+        await dp.start_polling(
+            bot, 
+            polling_timeout=30, 
+            backoff_config=BackoffConfig(
+                min_delay=5,
+                max_delay=30,
+                factor=1.3,
+                jitter=0.3,
+            ),
+        )
 
     except KeyboardInterrupt:
         logger.warning("Stop polling", exc_info=True)
